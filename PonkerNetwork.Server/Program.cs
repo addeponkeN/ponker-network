@@ -17,7 +17,7 @@ class Program
         listener.NetConnectedEvent += ListenerOnNetConnectedEvent;
         listener.NetDataReceivedEvent += ListenerOnNetDataReceivedEvent;
 
-        Console.WriteLine("client started");
+        Console.WriteLine("server started");
         while(true)
         {
             listener.PollEvents();
@@ -30,7 +30,6 @@ class Program
     {
         Console.WriteLine("net data received event");
         var msg = Server.CreateMessage();
-        
         Server.Send(msg);
     }
 

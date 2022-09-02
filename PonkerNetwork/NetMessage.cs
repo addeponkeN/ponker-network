@@ -15,11 +15,20 @@ public class NetMessage
     {
         _bufferLength = bufferLength;
         Data = new byte[_bufferLength];
+        
+        Recycle();
     }
     
     public void Recycle()
     {
-        _current = 0;
+        _current = NetPeer.HeaderSize;
+    }
+
+    internal void PrepareSend()
+    {
+        var dataLengthBytes = BitConverter.GetBytes((ushort)_current); 
+        Array.Copy(dataLengthBytes, 0, Data, 0, dataLengthBytes.Length);
+        Console.WriteLine($"message byte length: {_current}");
     }
 
     public void Write(byte[] data)

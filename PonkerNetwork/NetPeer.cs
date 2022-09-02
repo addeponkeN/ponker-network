@@ -52,16 +52,24 @@ public class NetPeer
 
     public List<Socket> Connections;
 
+    //  size of short
+    internal static ushort HeaderSize = 4;
     static int bufferSize = 2048;
     static int messageBufferSize = 2048;
     byte[] buffer = new byte[bufferSize];
 
+    IPEndPoint _sender;
+    EndPoint _senderRemote;
+    
     public NetPeer(NetConfig conf, NetListener listener)
     {
         Config = conf;
         Listener = listener;
         Connections = new List<Socket>();
-        _socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+        _socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+        
+        _sender = new IPEndPoint(IPAddress.Any, Config.Port);
+        _senderRemote = (EndPoint)_sender;
     }
 
     public NetMessage CreateMessage()
@@ -71,9 +79,8 @@ public class NetPeer
 
     public virtual void Start()
     {
-        _socket.Bind(new IPEndPoint(IPAddress.Any, Config.Port));
-        _socket.Listen(10);
-        _socket.BeginAccept(AcceptCallback, null);
+        _socket.Bind(_sender);
+        _socket.BeginReceiveFrom(buffer, 0, bufferSize, SocketFlags.None, ref _senderRemote, ReceiveCallback, null);
     }
 
     public void Connect(IPAddress address)
@@ -97,7 +104,7 @@ public class NetPeer
             }
         }
 
-        Console.WriteLine("## CONNECTED ##");
+        Console.WriteLine("## CONNECTED ?##");
     }
 
     public void CloseAllSockets()
@@ -123,29 +130,12 @@ public class NetPeer
 
     public void ReceiveCallback(IAsyncResult res)
     {
-        Socket current = (Socket)res.AsyncState;
-
-        int rec = 0;
-
-        try
-        {
-            rec = current.EndReceive(res);
-        }
-        catch
-        {
-            current.Close();
-            Connections.Remove(current);
-            Console.WriteLine("client removed");
-            return;
-        }
-
-        string text = Encoding.UTF8.GetString(buffer, 0, rec);
-
+        int dataLength = BitConverter.ToUInt16(buffer, 0);
+        
+        string text = Encoding.UTF8.GetString(buffer, HeaderSize, dataLength);
         Console.WriteLine($"Text received: {text}");
 
-        Listener.OnDataReceived(current, buffer);
-
-        current.BeginReceive(buffer, 0, bufferSize, SocketFlags.None, ReceiveCallback, current);
+        _socket.BeginReceiveFrom(buffer, 0, bufferSize, SocketFlags.None, ref _senderRemote, ReceiveCallback, null);
     }
 
     public void Connect(string ipAddress)
@@ -177,6 +167,7 @@ public class NetPeer
 
     public void Send(NetMessage message)
     {
+        message.PrepareSend();
         _socket.Send(message.Data);
     }
 }
