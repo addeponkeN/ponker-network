@@ -1,41 +1,26 @@
 ﻿using System.Net.Sockets;
-using PonkerNetwork.Client.PonkerNetwork.Shared;
+using PonkerNetwork.Shared;
 
 namespace PonkerNetwork.Server;
 
 class Program
 {
-    static NetServer Server;
+    static NetManager Server;
     
     static void Main(params string[] args)
     {
-        var listener = new NetListener();
-        var c = new NetConfig(NetSettings.Port);
-        Server = new NetServer(c, listener);
-        Server.Start();
-        
-        listener.NetConnectedEvent += ListenerOnNetConnectedEvent;
-        listener.NetDataReceivedEvent += ListenerOnNetDataReceivedEvent;
+        var c = new NetConfig()
+        {
+            Secret = NetSettings.HelloMsg
+        };
+
+        var server = new OmegaNet(c);
+        server.Start(NetSettings.Port);
 
         Console.WriteLine("server started");
-        while(true)
-        {
-            listener.PollEvents();
-            Console.ReadLine();
-        }
-        
+
+        Console.ReadLine();
+
     }
 
-    static void ListenerOnNetDataReceivedEvent(Socket sender, byte[] data)
-    {
-        Console.WriteLine("net data received event");
-        var msg = Server.CreateMessage();
-        Server.Send(msg);
-    }
-
-    static void ListenerOnNetConnectedEvent(Socket client)
-    {
-        Console.WriteLine("net connected event");
-    }
-    
 }
