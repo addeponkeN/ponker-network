@@ -6,6 +6,7 @@ public class NetMessage
 {
     public byte[] Data;
     public ArraySegment<byte> DataSegment;
+    internal ArraySegment<byte> DataSegmentOut;
 
     public int Size => _current;
 
@@ -30,12 +31,17 @@ public class NetMessage
         _current = headerSize;
     }
 
+    internal void PrepareSendUnconnected()
+    {
+        DataSegmentOut = DataSegment.Slice(0, _current);
+    }
+    
     internal void PrepareSend()
     {
         var dataLengthBytes = BitConverter.GetBytes((ushort)_current);
         Array.Copy(dataLengthBytes, 0, Data, 0, dataLengthBytes.Length);
         Console.WriteLine($"message byte length: {_current}");
-        DataSegment = DataSegment.Slice(0, _current);
+        DataSegmentOut = DataSegment.Slice(0, _current);
     }
 
     public void Write(byte[] data)

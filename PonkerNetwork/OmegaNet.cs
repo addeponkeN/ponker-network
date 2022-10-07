@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Text.Unicode;
 
 namespace PonkerNetwork;
 
@@ -43,16 +44,18 @@ public class OmegaNet
 
     public void Start(int port)
     {
-        buffer = new byte[1024];
+        buffer = new byte[2048];
         buffer_seg = new(buffer);
         messagebuffer = new byte[messageBufferSize];
 
         socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
         socket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.PacketInformation, true);
 
+        //  client returns
         if(port == 0)
             return;
 
+        //  server
         ep = new IPEndPoint(IPAddress.Any, port);
         socket.Bind(ep);
         StartListen();
@@ -62,16 +65,16 @@ public class OmegaNet
     {
         ep = new IPEndPoint(ip, port);
         socket.Connect(ep);
-        
+
         StartListen();
 
         Thread.Sleep(50);
-        
+
         var msg = CreateHandshakeMessage();
         msg.Recycle(0);
         msg.Write((byte)UnconnectedMessageTypes.HandshakeRequest);
         msg.Write(secret);
-        Send(msg);
+        SendUnconnected(msg);
     }
 
     void StartListen()
@@ -106,14 +109,18 @@ public class OmegaNet
 
     private void ReadConnectedData(ref SocketReceiveMessageFromResult res)
     {
-        Console.WriteLine("received connected data");
         int receivedBytes = BitConverter.ToInt16(buffer, 0);
+        Console.WriteLine($"received connected data - bytes: {receivedBytes}");
+
+        string text = Encoding.UTF8.GetString(buffer, HeaderSize, receivedBytes);
+
+        Console.WriteLine($"received: {text}");
     }
 
     private void ReadUnconnectedData(ref SocketReceiveMessageFromResult res)
     {
         Console.WriteLine("received unconnected data");
-        
+
         var unconnectedMessageType = (UnconnectedMessageTypes)buffer[0];
 
         switch(unconnectedMessageType)
@@ -132,7 +139,7 @@ public class OmegaNet
                 var peer = new NetPeer(res.RemoteEndPoint);
                 _acceptedPeers.Add(peer.Ep, peer);
 
-                SendTo(msg, res.RemoteEndPoint);
+                SendToUnconnected(msg, res.RemoteEndPoint);
                 break;
             }
 
@@ -146,19 +153,33 @@ public class OmegaNet
             default:
             {
                 Console.WriteLine("!! Unrecognized data received !!");
+                Console.WriteLine($"-> {(int)unconnectedMessageType}");
                 break;
             }
         }
     }
 
+    private async Task SendUnconnected(NetMessage msg)
+    {
+        msg.PrepareSendUnconnected();
+        await socket.SendToAsync(msg.DataSegmentOut, SocketFlags.None, ep);
+    }
+
+    private async Task SendToUnconnected(NetMessage msg, EndPoint recipient)
+    {
+        msg.PrepareSendUnconnected();
+        await socket.SendToAsync(msg.DataSegmentOut, SocketFlags.None, recipient);
+    }
+
     public async Task SendTo(NetMessage msg, EndPoint recipient)
     {
-        await socket.SendToAsync(msg.DataSegment, SocketFlags.None, recipient);
+        msg.PrepareSend();
+        await socket.SendToAsync(msg.DataSegmentOut, SocketFlags.None, recipient);
     }
 
     public async Task Send(NetMessage msg)
     {
-        await socket.SendToAsync(msg.Data, SocketFlags.None, ep);
+        msg.PrepareSend();
+        await socket.SendToAsync(msg.DataSegmentOut, SocketFlags.None, ep);
     }
-    
 }

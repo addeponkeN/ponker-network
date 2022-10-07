@@ -14,16 +14,29 @@ class Program
 
         var client = new OmegaNet(c);
         client.Start();
-        
-        Console.WriteLine("client started - enter to send");
+
+        Console.WriteLine("client started - enter to connect");
         Console.ReadLine();
-        
+
         client.Connect(IPAddress.Loopback, NetSettings.Port, NetSettings.HelloMsg);
 
-        // await client.Send();
+        string input;
+        NetMessage msg = client.CreateMessage();
+        while(true)
+        {
+            input = Console.ReadLine();
 
-        Console.ReadLine();
-        
+            if(string.IsNullOrEmpty(input))
+                continue;
+            
+            msg.Write(input);
+
+            await client.Send(msg);
+
+            msg.Recycle();
+
+            Console.WriteLine($"sent: {input}");
+        }
+
     }
-
 }
