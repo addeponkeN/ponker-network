@@ -1,40 +1,39 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
-using System.Text.Unicode;
 
 namespace PonkerNetwork;
 
 public class OmegaNet
 {
-    private static int messageBufferSize = 1024;
-
-    private Socket socket;
+    internal const byte HeaderSize = 4;
+    
+    public NetConfig Config;
+    
+    internal Socket Socket;
+    
+    private byte[] _writeBuffer;
+    private byte[] _buffer;
     private EndPoint ep;
-
-    private const byte HeaderSize = 4;
-
-    private byte[] buffer;
-    private byte[] messagebuffer;
-    private ArraySegment<byte> buffer_seg;
-
+    private ArraySegment<byte> _bufferSeg;
     private Dictionary<EndPoint, NetPeer> _acceptedPeers = new();
 
-    public NetConfig Config;
-
-    public OmegaNet(NetConfig cfg)
+    private INetListener _listener;
+    
+    public OmegaNet(INetListener listener, NetConfig cfg)
     {
+        _listener = listener;
         Config = cfg;
     }
 
-    public NetMessage CreateMessage()
+    public NetMessageWriter CreateMessage()
     {
-        return new NetMessage(messagebuffer);
+        return new NetMessageWriter(this, _buffer, _writeBuffer);
     }
 
-    internal NetMessage CreateHandshakeMessage()
+    internal NetMessageWriter CreateHandshakeMessage()
     {
-        return new NetMessage(messagebuffer);
+        return new NetMessageWriter(this, _buffer, _writeBuffer);
     }
 
     public void Start()
@@ -44,12 +43,12 @@ public class OmegaNet
 
     public void Start(int port)
     {
-        buffer = new byte[2048];
-        buffer_seg = new(buffer);
-        messagebuffer = new byte[messageBufferSize];
+        _buffer = new byte[Config.BufferSize];
+        _writeBuffer = new byte[1024];
+        _bufferSeg = new(_buffer);
 
-        socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-        socket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.PacketInformation, true);
+        Socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+        Socket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.PacketInformation, true);
 
         //  client returns
         if(port == 0)
@@ -57,14 +56,14 @@ public class OmegaNet
 
         //  server
         ep = new IPEndPoint(IPAddress.Any, port);
-        socket.Bind(ep);
+        Socket.Bind(ep);
         StartListen();
     }
 
     public void Connect(IPAddress ip, int port, string secret)
     {
         ep = new IPEndPoint(ip, port);
-        socket.Connect(ep);
+        Socket.Connect(ep);
 
         StartListen();
 
@@ -77,7 +76,7 @@ public class OmegaNet
         SendUnconnected(msg);
     }
 
-    void StartListen()
+    public void StartListen()
     {
         _ = Task.Run(async () =>
         {
@@ -86,7 +85,7 @@ public class OmegaNet
             {
                 Thread.Sleep(10);
 
-                res = await socket.ReceiveMessageFromAsync(buffer_seg, SocketFlags.None, ep);
+                res = await Socket.ReceiveMessageFromAsync(_bufferSeg, SocketFlags.None, ep);
 
                 if(res.ReceivedBytes == 0)
                 {
@@ -109,10 +108,11 @@ public class OmegaNet
 
     private void ReadConnectedData(ref SocketReceiveMessageFromResult res)
     {
-        int receivedBytes = BitConverter.ToInt16(buffer, 0);
-        Console.WriteLine($"received connected data - bytes: {receivedBytes}");
+        // _listener.OnDataReceived();
+        int receivedBytes = BitConverter.ToInt16(_buffer, 0) - HeaderSize;
+        Console.WriteLine($"received connected data - bytes: {receivedBytes} (+{receivedBytes + HeaderSize})");
 
-        string text = Encoding.UTF8.GetString(buffer, HeaderSize, receivedBytes);
+        string text = Encoding.UTF8.GetString(_buffer, HeaderSize, receivedBytes);
 
         Console.WriteLine($"received: {text}");
     }
@@ -121,16 +121,16 @@ public class OmegaNet
     {
         Console.WriteLine("received unconnected data");
 
-        var unconnectedMessageType = (UnconnectedMessageTypes)buffer[0];
+        var unconnectedMessageType = (UnconnectedMessageTypes)_buffer[0];
 
         switch(unconnectedMessageType)
         {
             case UnconnectedMessageTypes.HandshakeRequest:
             {
-                string secret = Encoding.UTF8.GetString(buffer, 1, Config.Secret.Length);
-                Console.WriteLine($"HandshakeRequest: '{secret}' from {res.RemoteEndPoint}");
+                string secret = Encoding.UTF8.GetString(_buffer, 1, Config.Secret.Length);
+                Console.WriteLine($"HandshakeRequest: '{secret}' from '{res.RemoteEndPoint}'");
 
-                //  handle handshake
+                //  respond to handshake
                 var msg = CreateHandshakeMessage();
                 msg.Recycle(0);
                 msg.Write((byte)UnconnectedMessageTypes.HandshakeResponse);
@@ -145,7 +145,7 @@ public class OmegaNet
 
             case UnconnectedMessageTypes.HandshakeResponse:
             {
-                string secret = Encoding.UTF8.GetString(buffer, 1, Config.Secret.Length);
+                string secret = Encoding.UTF8.GetString(_buffer, 1, Config.Secret.Length);
                 Console.WriteLine($"HandshakeResponse: {secret}");
                 break;
             }
@@ -162,24 +162,24 @@ public class OmegaNet
     private async Task SendUnconnected(NetMessage msg)
     {
         msg.PrepareSendUnconnected();
-        await socket.SendToAsync(msg.DataSegmentOut, SocketFlags.None, ep);
+        await Socket.SendToAsync(msg.DataSegmentOut, SocketFlags.None, ep);
     }
 
     private async Task SendToUnconnected(NetMessage msg, EndPoint recipient)
     {
         msg.PrepareSendUnconnected();
-        await socket.SendToAsync(msg.DataSegmentOut, SocketFlags.None, recipient);
+        await Socket.SendToAsync(msg.DataSegmentOut, SocketFlags.None, recipient);
     }
 
     public async Task SendTo(NetMessage msg, EndPoint recipient)
     {
         msg.PrepareSend();
-        await socket.SendToAsync(msg.DataSegmentOut, SocketFlags.None, recipient);
+        await Socket.SendToAsync(msg.DataSegmentOut, SocketFlags.None, recipient);
     }
 
     public async Task Send(NetMessage msg)
     {
         msg.PrepareSend();
-        await socket.SendToAsync(msg.DataSegmentOut, SocketFlags.None, ep);
+        await Socket.SendToAsync(msg.DataSegmentOut, SocketFlags.None, ep);
     }
 }

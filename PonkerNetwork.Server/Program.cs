@@ -1,12 +1,9 @@
-﻿using System.Net.Sockets;
-using PonkerNetwork.Shared;
+﻿using PonkerNetwork.Shared;
 
 namespace PonkerNetwork.Server;
 
 class Program
 {
-    static NetManager Server;
-    
     static void Main(params string[] args)
     {
         var c = new NetConfig()
@@ -14,7 +11,8 @@ class Program
             Secret = NetSettings.HelloMsg
         };
 
-        var server = new OmegaNet(c);
+        var listener = new NetEventListener();
+        var server = new OmegaNet(listener, c);
         server.Start(NetSettings.Port);
 
         Console.WriteLine("server started");

@@ -3,7 +3,7 @@ using PonkerNetwork.Shared;
 
 namespace PonkerNetwork.Client;
 
-class Program
+internal static class Program
 {
     static async Task Main(params string[] args)
     {
@@ -12,7 +12,8 @@ class Program
             Secret = NetSettings.HelloMsg
         };
 
-        var client = new OmegaNet(c);
+        var listener = new NetEventListener();
+        var client = new OmegaNet(listener, c);
         client.Start();
 
         Console.WriteLine("client started - enter to connect");
@@ -21,7 +22,9 @@ class Program
         client.Connect(IPAddress.Loopback, NetSettings.Port, NetSettings.HelloMsg);
 
         string input;
-        NetMessage msg = client.CreateMessage();
+        
+        NetMessageWriter msg = client.CreateMessage();
+        
         while(true)
         {
             input = Console.ReadLine();

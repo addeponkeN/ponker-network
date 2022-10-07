@@ -10,18 +10,18 @@ public class NetListener
 
     NetDataReceivedEvent _recycledEvent;
 
-    private int Port => man.Config.Port;
+    private OmegaNet _net;
+    
+    private int Port => _net.Config.Port;
 
-    private NetManager man;
     private IPEndPoint _ipEndPoint;
     private EndPoint _endPoint;
 
     private IPPacketInformation _info;
     private SocketFlags _flag;
 
-    public NetListener(NetManager netMan, IPEndPoint endPoint)
+    public NetListener(IPEndPoint endPoint)
     {
-        man = netMan;
         _ipEndPoint = endPoint;
         _endPoint = endPoint;
         _recycledEvent = new NetDataReceivedEvent();
@@ -42,6 +42,6 @@ public class NetListener
 
     public int Read(byte[] buffer, out IPPacketInformation info)
     {
-        return man.Socket.ReceiveMessageFrom(buffer, ref _flag, ref _endPoint, out info);
+        return _net.Socket.ReceiveMessageFrom(buffer, ref _flag, ref _endPoint, out info);
     }
 }
