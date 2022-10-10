@@ -17,7 +17,7 @@ public class NetMessageWriter : NetMessage
         }
 
         Array.Copy(data, 0, Buffer, Current, count);
-        Current += data.Length;
+        Current += count;
     }
     
     public void Write(byte[] data)
