@@ -8,9 +8,16 @@ public enum NetStates
     Connected,
 }
 
-public enum UnconnectedMessageTypes
+public enum UnconnectedMessageTypes : byte
 {
     None,
     HandshakeRequest = 69,
     HandshakeResponse = 70,
+}
+
+public enum ConnectedMessageTypes : byte
+{
+    Unknown,
+    Data,
+    Ping,
 }

@@ -14,8 +14,8 @@ public class NetMessage
 
     internal NetMessage(OmegaNet net, byte[] messageBuffer, byte[] writeBuffer)
     {
-        WriteBuffer = writeBuffer;
         Net = net;
+        WriteBuffer = writeBuffer;
         Buffer = messageBuffer;
         DataSegment = new ArraySegment<byte>(Buffer);
         Recycle();
@@ -30,18 +30,4 @@ public class NetMessage
     {
         Current = headerSize;
     }
-
-    internal void PrepareSendUnconnected()
-    {
-        DataSegmentOut = DataSegment.Slice(0, Current);
-    }
-
-    internal void PrepareSend()
-    {
-        var dataLengthBytes = BitConverter.GetBytes((ushort)Current);
-        Array.Copy(dataLengthBytes, 0, Buffer, 0, dataLengthBytes.Length);
-        Console.WriteLine($"message byte length: {Current - OmegaNet.HeaderSize} ({Current})");
-        DataSegmentOut = DataSegment.Slice(0, Current);
-    }
-
 }

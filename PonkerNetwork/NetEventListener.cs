@@ -7,9 +7,8 @@ public class NetEventListener : INetListener
         
     }
 
-    public void OnConnected(NetPeer peer)
+    public void OnConnectionAccepted(NetPeer peer)
     {
-        
     }
     
 }

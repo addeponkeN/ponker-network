@@ -13,16 +13,19 @@ namespace PonkerNetwork;
 
 public class NetPeer
 {
-    // internal Socket Socket;
-
-    public EndPoint Ep;
-
-    public NetPeer(EndPoint resRemoteEndPoint)
-    {
-        Ep = resRemoteEndPoint;
-        
-        // Socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-        // Socket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.PacketInformation, true);
-    }
+    private static uint _idPool = 1;
     
+    public uint UniqueId;
+    public IPEndPoint EndPoint;
+
+    public NetPeer(IPEndPoint resRemoteEndPoint)
+    {
+        EndPoint = resRemoteEndPoint;
+        UniqueId = _idPool++;
+    }
+
+    public override string ToString()
+    {
+        return $"({UniqueId}){EndPoint}";
+    }
 }

@@ -19,7 +19,7 @@ internal static class Program
         Console.WriteLine("client started - enter to connect");
         Console.ReadLine();
 
-        client.Connect(IPAddress.Loopback, NetSettings.Port, NetSettings.HelloMsg);
+        await client.Connect(IPAddress.Loopback, NetSettings.Port, NetSettings.HelloMsg);
 
         string input;
         
