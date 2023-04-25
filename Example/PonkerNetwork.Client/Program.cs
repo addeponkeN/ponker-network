@@ -1,5 +1,7 @@
-﻿using System.Diagnostics;
+﻿using System;
+using System.Diagnostics;
 using System.Net;
+using System.Threading.Tasks;
 using PonkerNetwork.Shared;
 using PonkerNetwork.Shared.Packets;
 using PonkerNetwork.Utility;
@@ -25,13 +27,11 @@ internal static class Program
 
         await client.Connect(IPAddress.Loopback, NetSettings.Port, NetSettings.HelloMsg);
 
-        string input;
-
         NetMessageWriter writer = client.CreateMessage();
 
         while(true)
         {
-            input = Console.ReadLine();
+            string input = Console.ReadLine();
 
             if(string.IsNullOrEmpty(input))
                 continue;

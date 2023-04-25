@@ -1,4 +1,5 @@
-﻿using PonkerNetwork.Shared;
+﻿using System;
+using PonkerNetwork.Shared;
 using PonkerNetwork.Shared.Packets;
 using PonkerNetwork.Utility;
 
@@ -32,11 +33,11 @@ class Program
 
     private static void PlayerJoined(PlayerJoinPacket pkt)
     {
-        // Log.D($"Player joined: {pkt.Name}");
+        Log.D($"Player joined: {pkt.Name} ({pkt.Id})");
     }
 
     static void ChatMessageReceive(ChatMessagePacket pkt)
     {
-        // Log.D($"CHAT MSG RECEIVED {pkt.Message}");
+        Log.D($"ChatMessage: {pkt.Message}");
     }
 }

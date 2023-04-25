@@ -1,7 +1,3 @@
-/.idea/
-/PonkerNetwork/bin/
-/PonkerNetwork/obj/
-/PonkerNetwork.Client/bin/
-/PonkerNetwork.Client/obj/
-/PonkerNetwork.Server/bin/
-/PonkerNetwork.Server/obj/
+.idea/
+bin/
+obj/
