@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
-using System.Text;
 using PonkerNetwork.Utility;
 
 namespace PonkerNetwork;
@@ -42,7 +41,7 @@ public class PonkerNet
 
     private void RegisterBaseServices()
     {
-        Services.Register<IPacket.PingPacket>();
+        // Services.Register<IPacket.PingPacket>();
     }
 
     public NetMessageWriter CreateMessage()
@@ -147,7 +146,7 @@ public class PonkerNet
         while(_reader.Current < receivedBytes)
         {
             IPacket packet = _reader.ReadPacket(out Type packetType);
-            Services.InvokeSub(packetType, packet, peer);
+            Services.TriggerPacket(packetType, packet, peer);
         }
 
         sw.Stop();

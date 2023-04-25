@@ -1,46 +1,57 @@
-namespace PonkerNetwork;
+using System.Diagnostics;
+using System.Linq.Expressions;
+using System.Reflection;
+using PonkerNetwork.Utility;
 
-public class PacketEvent
-{
-    public Action<IPacket> Event;
-}
+namespace PonkerNetwork;
 
 public class PacketService
 {
     private List<Type> _services = new();
     private Dictionary<Type, int> _hashIndexes = new();
+    private Dictionary<Type, Action<IPacket, NetPeer>> _subs = new();
+
+    private Dictionary<Type, Func<IPacket>> _compiledPacketConstructors;
+    private Dictionary<int, Func<IPacket>> _compiledPacketConstructorsId;
 
     private PonkerNet _net;
 
     public PacketService(PonkerNet net)
     {
         _net = net;
-        PacketListener.Init(_net);
+        RegisterAllPackets();
+    }
+
+    private void RegisterAllPackets()
+    {
+        _compiledPacketConstructors = new();
+        _compiledPacketConstructorsId = new();
+
+        var types = AppDomain.CurrentDomain.GetAssemblies()
+            .SelectMany(x => x.GetTypes())
+            .Where(y => y.IsValueType && typeof(IPacket).IsAssignableFrom(y));
+
+        foreach(var type in types)
+        {
+            var ctor = Expression.New(type);
+            var convertExpr = Expression.Convert(ctor, typeof(IPacket));
+            var lambda = Expression.Lambda<Func<IPacket>>(convertExpr);
+            var expr = lambda.Compile();
+            _compiledPacketConstructors.Add(type, expr);
+            Register(type);
+        }
+    }
+
+    private void Register(Type type)
+    {
+        _services.Add(type);
+        _hashIndexes.Add(type, _hashIndexes.Count);
     }
 
     public void Register<T>() where T : IPacket
     {
         _services.Add(typeof(T));
         _hashIndexes.Add(typeof(T), _hashIndexes.Count);
-        PacketListener<T>.Init(_net);
-    }
-
-    public Type Get(int id)
-    {
-        return _services[id];
-    }
-
-    public int Get<T>() where T : IPacket
-    {
-        return _hashIndexes[typeof(T)];
-    }
-
-    private Dictionary<Type, Action<IPacket, NetPeer>> _subs = new();
-
-    public void InvokeSub(Type packetType, IPacket packet, NetPeer netPeer)
-    {
-        var action = _subs[packetType];
-        action.Invoke(packet, netPeer);
     }
 
     public void Subscribe<T>(Action<T, NetPeer> action) where T : IPacket
@@ -51,5 +62,26 @@ public class PacketService
         }
 
         _subs.Add(typeof(T), Value);
+    }
+
+    internal IPacket CreatePacket(int id)
+    {
+        return _compiledPacketConstructorsId[id]();
+    }
+
+    internal Type Get(int id)
+    {
+        return _services[id];
+    }
+
+    internal int Get<T>() where T : IPacket
+    {
+        return _hashIndexes[typeof(T)];
+    }
+
+    internal void TriggerPacket(Type packetType, IPacket packet, NetPeer netPeer)
+    {
+        var action = _subs[packetType];
+        action.Invoke(packet, netPeer);
     }
 }

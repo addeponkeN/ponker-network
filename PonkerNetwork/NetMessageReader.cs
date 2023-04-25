@@ -95,8 +95,7 @@ public class NetMessageReader : NetMessage
     public IPacket ReadPacket()
     {
         var id = ReadByte();
-        var packetType = Net.Services.Get(id);
-        var packet = Activator.CreateInstance(packetType) as IPacket;
+        var packet = Net.Services.CreatePacket(id);
         packet.Read(this);
         return packet;
     }
@@ -105,7 +104,7 @@ public class NetMessageReader : NetMessage
     {
         var id = ReadByte();
         packetType = Net.Services.Get(id);
-        var packet = Activator.CreateInstance(packetType) as IPacket;
+        var packet = Net.Services.CreatePacket(id);
         packet.Read(this);
         return packet;
     }
