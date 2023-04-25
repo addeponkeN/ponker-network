@@ -10,5 +10,8 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)NetSettings.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)OmegaNetExtensions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Packets\ChatMessagePacket.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Packets\PlayerJoinPacket.cs" />
   </ItemGroup>
 </Project>

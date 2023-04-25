@@ -11,7 +11,7 @@ public class NetConfig
 
     public NetConfig()
     {
-        BufferSize = 2048;
+        BufferSize = 4096;
     }
 
     public NetConfig(int port) : this()

@@ -1,4 +1,6 @@
 ﻿using PonkerNetwork.Shared;
+using PonkerNetwork.Shared.Packets;
+using PonkerNetwork.Utility;
 
 namespace PonkerNetwork.Server;
 
@@ -13,12 +15,28 @@ class Program
 
         var listener = new NetEventListener();
         var server = new OmegaNet(listener, c);
+
+        server.RegisterPackets();
+        server.Services.Subscribe<ChatMessagePacket>(ChatMessageReceive);
+        server.Services.Subscribe<PlayerJoinPacket>(PlayerJoined);
+
         server.Start(NetSettings.Port);
 
         Console.WriteLine("server started");
 
-        Console.ReadLine();
-
+        while(true)
+        {
+            Console.ReadLine();
+        }
     }
 
+    private static void PlayerJoined(PlayerJoinPacket pkt)
+    {
+        // Log.D($"Player joined: {pkt.Name}");
+    }
+
+    static void ChatMessageReceive(ChatMessagePacket pkt)
+    {
+        // Log.D($"CHAT MSG RECEIVED {pkt.Message}");
+    }
 }

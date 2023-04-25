@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -7,15 +8,17 @@ namespace PonkerNetwork;
 
 struct NetHeader
 {
-    public ushort ArrSize;
-    public byte DataType;
+    // public ushort ArrSize;
+    // public byte DataType;
 }
 
 public class OmegaNet
 {
-    internal static readonly unsafe byte HeaderSize = (byte)(sizeof(NetHeader));
+    // internal static readonly unsafe byte HeaderSize = (byte)(sizeof(NetHeader));
+    internal static readonly byte HeaderSize = 0;
 
     public NetConfig Config;
+    public PacketService Services;
 
     internal Socket Socket;
 
@@ -33,6 +36,13 @@ public class OmegaNet
     {
         _listener = listener;
         Config = cfg;
+        Services = new(this);
+        RegisterBaseServices();
+    }
+
+    private void RegisterBaseServices()
+    {
+        Services.Register<PingPacket>();
     }
 
     public NetMessageWriter CreateMessage()
@@ -128,42 +138,37 @@ public class OmegaNet
 
     private void ReadConnectedData(SocketReceiveMessageFromResult res, NetPeer peer)
     {
-        int receivedBytes = BitConverter.ToInt16(_buffer, 0) - HeaderSize;
+        int receivedBytes = res.ReceivedBytes;
 
-        var dataType = (ConnectedMessageTypes)_buffer[2];
-
-        Console.WriteLine($"Data Received: {dataType} - {receivedBytes}bytes (+{receivedBytes + HeaderSize})");
-        
-        switch(dataType)
-        {
-            case ConnectedMessageTypes.Unknown:
-                break;
-            case ConnectedMessageTypes.Data:
-                _reader.PrepareRead(_buffer, receivedBytes);
-                _listener.OnDataReceived(peer, _reader);
-                break;
-            case ConnectedMessageTypes.Ping:
-                break;
-        }
+        var sw = Stopwatch.StartNew();
 
         _reader.PrepareRead(_buffer, receivedBytes);
 
-        string text = Encoding.UTF8.GetString(_buffer, HeaderSize, receivedBytes);
+        while(_reader.Current < receivedBytes)
+        {
+            IPacket packet = _reader.ReadPacket(out Type packetType);
+            Services.InvokeSub(packetType, packet);
+        }
 
-        Console.WriteLine($"received: {text}");
+        sw.Stop();
+
+        // Log.D($"total time: {sw.Elapsed.TotalMilliseconds}ms");
+        // Log.D($"packet create time: {swPacketCreate.Elapsed.TotalMilliseconds}ms");
+        // Log.D($"invoke time: {swInvoke.Elapsed.TotalMilliseconds}ms");
     }
 
     private async Task ReadUnconnectedData(SocketReceiveMessageFromResult res)
     {
         Console.WriteLine("received unconnected data");
 
-        var unconnectedMessageType = (UnconnectedMessageTypes)_buffer[0];
+        _reader.PrepareRead(_buffer, res.ReceivedBytes);
+        var unconnectedMessageType = (UnconnectedMessageTypes)_reader.ReadByte(); //_buffer[0];
 
         switch(unconnectedMessageType)
         {
             case UnconnectedMessageTypes.HandshakeRequest:
             {
-                string secret = Encoding.UTF8.GetString(_buffer, 1, Config.Secret.Length);
+                _reader.ReadString(out string secret);
 
                 var ep = (IPEndPoint)res.RemoteEndPoint;
                 if(!secret.Equals(Config.Secret))

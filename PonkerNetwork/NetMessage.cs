@@ -4,13 +4,12 @@ public class NetMessage
 {
     public readonly byte[] Buffer;
     public ArraySegment<byte> DataSegment;
-
+    public int Current = 0;
+    
     internal ArraySegment<byte> DataSegmentOut;
 
     protected readonly byte[] WriteBuffer;
     protected readonly OmegaNet Net;
-    
-    protected int Current = 0;
 
     internal NetMessage(OmegaNet net, byte[] messageBuffer, byte[] writeBuffer)
     {
