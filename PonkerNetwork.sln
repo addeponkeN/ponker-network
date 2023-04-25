@@ -2,11 +2,11 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PonkerNetwork", "PonkerNetwork\PonkerNetwork.csproj", "{25394B36-8872-495D-89A9-7619E53D0EB0}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PonkerNetwork.Client", "PonkerNetwork.Client\PonkerNetwork.Client.csproj", "{430813B6-1AC8-4362-AF3E-D07C817572D4}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PonkerNetwork.Client", "Example\PonkerNetwork.Client\PonkerNetwork.Client.csproj", "{430813B6-1AC8-4362-AF3E-D07C817572D4}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PonkerNetwork.Server", "PonkerNetwork.Server\PonkerNetwork.Server.csproj", "{B76FF2B4-CC3A-4F78-9388-A3032BB568DB}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PonkerNetwork.Server", "Example\PonkerNetwork.Server\PonkerNetwork.Server.csproj", "{B76FF2B4-CC3A-4F78-9388-A3032BB568DB}"
 EndProject
-Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "PonkerNetwork.Shared", "PonkerNetwork.Shared\PonkerNetwork.Shared.shproj", "{7A2A1F51-FA4E-4743-963A-F0438CE375F1}"
+Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "PonkerNetwork.Shared", "Example\PonkerNetwork.Shared\PonkerNetwork.Shared.shproj", "{7A2A1F51-FA4E-4743-963A-F0438CE375F1}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

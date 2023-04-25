@@ -18,5 +18,4 @@ public struct ChatMessagePacket : IPacket
     {
         reader.ReadString8(out Message);
     }
-    
 }
