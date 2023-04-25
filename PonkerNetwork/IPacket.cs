@@ -8,10 +8,6 @@ public interface IPacket
 
 public struct PingPacket : IPacket
 {
-    public PingPacket()
-    {
-    }
-
     public void Write(NetMessageWriter writer)
     {
     }

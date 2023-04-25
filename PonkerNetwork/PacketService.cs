@@ -31,6 +31,7 @@ public class PacketService
             .SelectMany(x => x.GetTypes())
             .Where(y => y.IsValueType && typeof(IPacket).IsAssignableFrom(y));
 
+        int i = 0;
         foreach(var type in types)
         {
             var ctor = Expression.New(type);
@@ -38,6 +39,7 @@ public class PacketService
             var lambda = Expression.Lambda<Func<IPacket>>(convertExpr);
             var expr = lambda.Compile();
             _compiledPacketConstructors.Add(type, expr);
+            _compiledPacketConstructorsId.Add(i++, expr);
             Register(type);
         }
     }

@@ -4,11 +4,6 @@ public struct ChatMessagePacket : IPacket
 {
     public string Message;
 
-    public ChatMessagePacket()
-    {
-        Message = string.Empty;
-    }
-
     public ChatMessagePacket(string message)
     {
         Message = message;
