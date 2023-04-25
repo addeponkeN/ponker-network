@@ -5,7 +5,7 @@ namespace PonkerNetwork;
 
 public class NetMessageWriter : NetMessage
 {
-    internal NetMessageWriter(OmegaNet net, byte[] messageBuffer, byte[] writeBuffer)
+    internal NetMessageWriter(PonkerNet net, byte[] messageBuffer, byte[] writeBuffer)
         : base(net, messageBuffer, writeBuffer)
     {
     }
@@ -30,7 +30,7 @@ public class NetMessageWriter : NetMessage
     {
         // var dataLengthBytes = BitConverter.GetBytes((ushort)Current);
         // Array.Copy(dataLengthBytes, 0, Buffer, 0, dataLengthBytes.Length);
-        Console.WriteLine($"message byte length: {Current - OmegaNet.HeaderSize} ({Current})");
+        Console.WriteLine($"message byte length: {Current - PonkerNet.HeaderSize} ({Current})");
         DataSegmentOut = DataSegment.Slice(0, Current);
     }
 

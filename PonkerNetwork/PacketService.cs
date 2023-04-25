@@ -10,9 +10,9 @@ public class PacketService
     private List<Type> _services = new();
     private Dictionary<Type, int> _hashIndexes = new();
 
-    private OmegaNet _net;
+    private PonkerNet _net;
 
-    public PacketService(OmegaNet net)
+    public PacketService(PonkerNet net)
     {
         _net = net;
         PacketListener.Init(_net);
@@ -35,38 +35,21 @@ public class PacketService
         return _hashIndexes[typeof(T)];
     }
 
-    private Dictionary<Type, Action<IPacket>> _subs = new();
+    private Dictionary<Type, Action<IPacket, NetPeer>> _subs = new();
 
-    public void InvokeSub(Type packetType, IPacket packet)
+    public void InvokeSub(Type packetType, IPacket packet, NetPeer netPeer)
     {
         var action = _subs[packetType];
-        action.Invoke(packet);
+        action.Invoke(packet, netPeer);
     }
 
-    public void Subscribe<T>(Action<T> action) where T : IPacket
+    public void Subscribe<T>(Action<T, NetPeer> action) where T : IPacket
     {
-        void Value(IPacket packet)
+        void Value(IPacket packet, NetPeer peer)
         {
-            action((T)packet);
+            action((T)packet, peer);
         }
 
         _subs.Add(typeof(T), Value);
-    }
-}
-
-public interface IPacket
-{
-    void Write(NetMessageWriter writer);
-    void Read(NetMessageReader reader);
-}
-
-public struct PingPacket : IPacket
-{
-    public void Write(NetMessageWriter writer)
-    {
-    }
-
-    public void Read(NetMessageReader reader)
-    {
     }
 }

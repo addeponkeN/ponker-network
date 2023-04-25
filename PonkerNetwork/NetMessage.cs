@@ -9,9 +9,9 @@ public class NetMessage
     internal ArraySegment<byte> DataSegmentOut;
 
     protected readonly byte[] WriteBuffer;
-    protected readonly OmegaNet Net;
+    protected readonly PonkerNet Net;
 
-    internal NetMessage(OmegaNet net, byte[] messageBuffer, byte[] writeBuffer)
+    internal NetMessage(PonkerNet net, byte[] messageBuffer, byte[] writeBuffer)
     {
         Net = net;
         WriteBuffer = writeBuffer;
@@ -22,7 +22,7 @@ public class NetMessage
 
     public void Recycle()
     {
-        Recycle(OmegaNet.HeaderSize);
+        Recycle(PonkerNet.HeaderSize);
     }
 
     internal void Recycle(int headerSize)

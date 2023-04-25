@@ -1,7 +1,4 @@
-﻿using System;
-using System.Diagnostics;
-using System.Net;
-using System.Threading.Tasks;
+﻿using System.Net;
 using PonkerNetwork.Shared;
 using PonkerNetwork.Shared.Packets;
 using PonkerNetwork.Utility;
@@ -18,9 +15,11 @@ internal static class Program
         };
 
         var listener = new NetEventListener();
-        var client = new OmegaNet(listener, c);
+        var client = new PonkerNet(listener, c);
         client.RegisterPackets();
         client.Start();
+        
+        client.Services.Subscribe<ChatMessagePacket>(ChatMessage);
 
         Console.WriteLine("client started - enter to connect");
         Console.ReadLine();
@@ -36,20 +35,19 @@ internal static class Program
             if(string.IsNullOrEmpty(input))
                 continue;
 
-            var sw = Stopwatch.StartNew();
-
             var pkMsg = new ChatMessagePacket(input);
             writer.WritePacket(pkMsg);
 
             await client.Send(writer);
 
-            sw.Stop();
-
-            Log.D($"write & send time: {sw.Elapsed.TotalMilliseconds}ms");
-
             writer.Recycle();
 
             Console.WriteLine($"sent: {input}");
         }
+    }
+
+    private static void ChatMessage(ChatMessagePacket packet, NetPeer peer)
+    {
+        Log.D($"ChatMessage: {packet.Message}");
     }
 }

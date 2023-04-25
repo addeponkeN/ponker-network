@@ -8,7 +8,7 @@ public class NetMessageReader : NetMessage
     private byte[] _readBuffer;
     private int _totalBytes;
     
-    internal NetMessageReader(OmegaNet net, byte[] messageBuffer, byte[] writeBuffer) 
+    internal NetMessageReader(PonkerNet net, byte[] messageBuffer, byte[] writeBuffer) 
         : base(net, messageBuffer, writeBuffer)
     {
         
@@ -16,7 +16,7 @@ public class NetMessageReader : NetMessage
 
     public void PrepareRead(byte[] buffer, int receivedBytes)
     {
-        Current = OmegaNet.HeaderSize;
+        Current = PonkerNet.HeaderSize;
         _readBuffer = buffer;
         _totalBytes = receivedBytes;
     }

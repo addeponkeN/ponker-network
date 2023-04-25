@@ -12,7 +12,7 @@ struct NetHeader
     // public byte DataType;
 }
 
-public class OmegaNet
+public class PonkerNet
 {
     // internal static readonly unsafe byte HeaderSize = (byte)(sizeof(NetHeader));
     internal static readonly byte HeaderSize = 0;
@@ -32,7 +32,7 @@ public class OmegaNet
     private INetListener _listener;
     private NetMessageReader _reader;
 
-    public OmegaNet(INetListener listener, NetConfig cfg)
+    public PonkerNet(INetListener listener, NetConfig cfg)
     {
         _listener = listener;
         Config = cfg;
@@ -42,7 +42,7 @@ public class OmegaNet
 
     private void RegisterBaseServices()
     {
-        Services.Register<PingPacket>();
+        Services.Register<IPacket.PingPacket>();
     }
 
     public NetMessageWriter CreateMessage()
@@ -99,7 +99,7 @@ public class OmegaNet
             SocketReceiveMessageFromResult res;
             while(true)
             {
-                Thread.Sleep(10);
+                Thread.Sleep(1);
 
                 res = await Socket.ReceiveMessageFromAsync(_bufferSeg, SocketFlags.None, _ep);
 
@@ -147,7 +147,7 @@ public class OmegaNet
         while(_reader.Current < receivedBytes)
         {
             IPacket packet = _reader.ReadPacket(out Type packetType);
-            Services.InvokeSub(packetType, packet);
+            Services.InvokeSub(packetType, packet, peer);
         }
 
         sw.Stop();
@@ -196,7 +196,7 @@ public class OmegaNet
 
             case UnconnectedMessageTypes.HandshakeResponse:
             {
-                string secret = Encoding.UTF8.GetString(_buffer, 1, Config.Secret.Length);
+                _reader.ReadString(out string secret);
                 Console.WriteLine($"HandshakeResponse: {secret}");
 
                 var ep = (IPEndPoint)res.RemoteEndPoint;
@@ -239,6 +239,15 @@ public class OmegaNet
     {
         msg.PrepareSend();
         await Socket.SendToAsync(msg.DataSegmentOut, SocketFlags.None, recipient);
+    }
+
+    public async Task SendToAll(NetMessageWriter msg)
+    {
+        msg.PrepareSend();
+        for(int i = 0; i < _acceptedPeersList.Count; i++)
+        {
+            await Socket.SendToAsync(msg.DataSegmentOut, SocketFlags.None, _acceptedPeersList[i].EndPoint);
+        }
     }
 
     public async Task Send(NetMessageWriter msg)

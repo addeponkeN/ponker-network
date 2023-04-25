@@ -1,5 +1,4 @@
-﻿using System;
-using PonkerNetwork.Shared;
+﻿using PonkerNetwork.Shared;
 using PonkerNetwork.Shared.Packets;
 using PonkerNetwork.Utility;
 
@@ -7,6 +6,8 @@ namespace PonkerNetwork.Server;
 
 class Program
 {
+    private static PonkerNet server;
+    private static NetMessageWriter _writer;
     static void Main(params string[] args)
     {
         var c = new NetConfig()
@@ -15,13 +16,14 @@ class Program
         };
 
         var listener = new NetEventListener();
-        var server = new OmegaNet(listener, c);
+        server = new PonkerNet(listener, c);
 
         server.RegisterPackets();
+        server.Start(NetSettings.Port);
+        _writer = server.CreateMessage();
+        
         server.Services.Subscribe<ChatMessagePacket>(ChatMessageReceive);
         server.Services.Subscribe<PlayerJoinPacket>(PlayerJoined);
-
-        server.Start(NetSettings.Port);
 
         Console.WriteLine("server started");
 
@@ -31,13 +33,16 @@ class Program
         }
     }
 
-    private static void PlayerJoined(PlayerJoinPacket pkt)
+    private static void PlayerJoined(PlayerJoinPacket pkt, NetPeer peer)
     {
         Log.D($"Player joined: {pkt.Name} ({pkt.Id})");
     }
 
-    static void ChatMessageReceive(ChatMessagePacket pkt)
+    static async void ChatMessageReceive(ChatMessagePacket pkt, NetPeer peer)
     {
         Log.D($"ChatMessage: {pkt.Message}");
+        _writer.Recycle();
+        _writer.WritePacket(pkt);
+        await server.SendToAll(_writer);
     }
 }
