@@ -8,28 +8,33 @@ class Program
 {
     private static PonkerNet server;
     private static NetMessageWriter _writer;
-    static void Main(params string[] args)
+    static async Task Main(params string[] args)
     {
+        Console.Title = "SERVER";
+
         var c = new NetConfig()
         {
             Secret = NetSettings.HelloMsg
         };
 
-        var listener = new NetEventListener();
-        server = new PonkerNet(listener, c);
+        server = new PonkerNet(c);
 
         server.RegisterPackets();
         server.Start(NetSettings.Port);
+
         _writer = server.CreateMessage();
         
         server.Services.Subscribe<ChatMessagePacket>(ChatMessageReceive);
         server.Services.Subscribe<PlayerJoinPacket>(PlayerJoined);
 
+        Console.WriteLine("<ENTER> to start server");
+        Console.ReadLine();
         Console.WriteLine("server started");
 
         while(true)
         {
-            Console.ReadLine();
+            Thread.Sleep(50);
+            await server.ReadMessagesAsync();
         }
     }
 

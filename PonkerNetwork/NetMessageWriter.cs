@@ -28,9 +28,7 @@ public class NetMessageWriter : NetMessage
 
     internal void PrepareSend()
     {
-        // var dataLengthBytes = BitConverter.GetBytes((ushort)Current);
-        // Array.Copy(dataLengthBytes, 0, Buffer, 0, dataLengthBytes.Length);
-        Console.WriteLine($"message byte length: {Current - PonkerNet.HeaderSize} ({Current})");
+        // Console.WriteLine($"message byte length: {Current - PonkerNet.HeaderSize} ({Current})");
         DataSegmentOut = DataSegment.Slice(0, Current);
     }
 

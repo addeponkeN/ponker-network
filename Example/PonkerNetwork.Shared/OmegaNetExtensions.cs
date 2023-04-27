@@ -1,4 +1,3 @@
-using PonkerNetwork.Shared.Packets;
 
 namespace PonkerNetwork.Shared;
 
@@ -9,4 +8,5 @@ public static class OmegaNetExtensions
         // net.Services.Register<ChatMessagePacket>();
         // net.Services.Register<PlayerJoinPacket>();
     }
+    
 }

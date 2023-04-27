@@ -11,6 +11,17 @@ struct NetHeader
     // public byte DataType;
 }
 
+public enum NetStatusTypes
+{
+    None,
+    Connected,
+    Connecting,
+    Handshaking,
+    Disconnected,
+    Disconnecting,
+    Host,
+}
+
 public class PonkerNet
 {
     // internal static readonly unsafe byte HeaderSize = (byte)(sizeof(NetHeader));
@@ -19,7 +30,7 @@ public class PonkerNet
     public NetConfig Config;
     public PacketService Services;
 
-    internal Socket Socket;
+    internal Socket socket;
 
     private byte[] _messageBuffer;
     private byte[] _buffer;
@@ -28,15 +39,34 @@ public class PonkerNet
     private Dictionary<EndPoint, NetPeer> _acceptedPeers = new();
     private List<NetPeer> _acceptedPeersList = new();
 
-    private INetListener _listener;
+    private List<NetPeer> _connectingPeers = new();
+
     private NetMessageReader _reader;
 
-    public PonkerNet(INetListener listener, NetConfig cfg)
+    public event OnConnectedEvent OnConnectedEvent;
+    public event OnConnectionAccepted OnConnectionAccepted;
+
+    private NetStatusTypes _netStatus;
+
+    public NetStatusTypes NetStatus
     {
-        _listener = listener;
+        get => _netStatus;
+        internal set
+        {
+            if(_netStatus != value)
+            {
+                Log.D($"NetStatus: {_netStatus}");
+                _netStatus = value;
+            }
+        }
+    }
+
+    public PonkerNet(NetConfig cfg)
+    {
         Config = cfg;
         Services = new(this);
         RegisterBaseServices();
+        NetStatus = NetStatusTypes.Disconnected;
     }
 
     private void RegisterBaseServices()
@@ -62,25 +92,30 @@ public class PonkerNet
 
         _reader = new NetMessageReader(this, _buffer, _messageBuffer);
 
-        Socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-        Socket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.PacketInformation, true);
+        socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+        socket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.PacketInformation, true);
 
         //  client returns
         if(port == 0)
             return;
 
         //  server
+        NetStatus = NetStatusTypes.Host;
         _ep = new IPEndPoint(IPAddress.Any, port);
-        Socket.Bind(_ep);
-        StartListen();
+        socket.Bind(_ep);
+        // StartListen();
     }
 
     public async Task Connect(IPAddress ip, int port, string secret)
     {
         _ep = new IPEndPoint(ip, port);
-        await Socket.ConnectAsync(_ep);
 
-        StartListen();
+        NetStatus = NetStatusTypes.Connecting;
+
+        var peer = new NetPeer((IPEndPoint)_ep);
+        _connectingPeers.Add(peer);
+
+        ConnectToPeer(peer);
 
         Thread.Sleep(50);
 
@@ -89,6 +124,63 @@ public class PonkerNet
         msg.Write((byte)UnconnectedMessageTypes.HandshakeRequest);
         msg.Write(secret);
         await SendUnconnected(msg);
+    }
+
+    bool ConnectToPeer(NetPeer peer)
+    {
+        bool connected = false;
+        Log.D($"Connecting to '{peer.EndPoint}'...");
+        socket.BeginConnect(peer.EndPoint, res =>
+        {
+            socket.EndConnect(res);
+
+            bool connectStatus = socket.Poll(1000, SelectMode.SelectRead);
+            bool available = socket.Available == 0;
+
+            connected = connectStatus && available;
+
+            if(connected)
+            {
+                NetStatus = NetStatusTypes.Connected;
+            }
+            else
+            {
+                NetStatus = NetStatusTypes.Connecting;
+            }
+
+            Log.D($"Connected: {connected}");
+            
+        }, null);
+
+        return connected;
+    }
+
+    public async Task ReadMessagesAsync()
+    {
+        for(int i = 0; i < _connectingPeers.Count; i++)
+        {
+            var conPeer = _connectingPeers[i];
+            if(ConnectToPeer(conPeer))
+                _connectingPeers.RemoveAt(i--);
+        }
+
+        SocketReceiveMessageFromResult res;
+
+        res = await socket.ReceiveMessageFromAsync(_bufferSeg, SocketFlags.None, _ep);
+
+        if(res.ReceivedBytes == 0)
+        {
+            return;
+        }
+
+        if(IsPeerAccepted(res.RemoteEndPoint, out NetPeer peer))
+        {
+            ReadConnectedData(res, peer);
+        }
+        else
+        {
+            await ReadUnconnectedData(res);
+        }
     }
 
     public void StartListen()
@@ -100,7 +192,7 @@ public class PonkerNet
             {
                 Thread.Sleep(1);
 
-                res = await Socket.ReceiveMessageFromAsync(_bufferSeg, SocketFlags.None, _ep);
+                res = await socket.ReceiveMessageFromAsync(_bufferSeg, SocketFlags.None, _ep);
 
                 if(res.ReceivedBytes == 0)
                 {
@@ -139,7 +231,7 @@ public class PonkerNet
     {
         int receivedBytes = res.ReceivedBytes;
 
-        var sw = Stopwatch.StartNew();
+        // var sw = Stopwatch.StartNew();
 
         _reader.PrepareRead(_buffer, receivedBytes);
 
@@ -149,7 +241,7 @@ public class PonkerNet
             Services.TriggerPacket(packetType, packet, peer);
         }
 
-        sw.Stop();
+        // sw.Stop();
 
         // Log.D($"total time: {sw.Elapsed.TotalMilliseconds}ms");
         // Log.D($"packet create time: {swPacketCreate.Elapsed.TotalMilliseconds}ms");
@@ -186,7 +278,7 @@ public class PonkerNet
 
                 var peer = AcceptPeer(res.RemoteEndPoint);
 
-                _listener.OnConnectionAccepted(peer);
+                OnConnectedEvent?.Invoke(peer);
 
                 await SendToUnconnected(msg, res.RemoteEndPoint);
 
@@ -205,10 +297,11 @@ public class PonkerNet
                     break;
                 }
 
+                NetStatus = NetStatusTypes.Connected;
                 Log.D($"Handshake response success ({ep})");
 
                 var peer = AcceptPeer(ep);
-                _listener.OnConnectionAccepted(peer);
+                OnConnectionAccepted?.Invoke(peer);
 
                 break;
             }
@@ -225,19 +318,19 @@ public class PonkerNet
     private async Task SendUnconnected(NetMessageWriter msg)
     {
         msg.PrepareSendUnconnected();
-        await Socket.SendToAsync(msg.DataSegmentOut, SocketFlags.None, _ep);
+        await socket.SendToAsync(msg.DataSegmentOut, SocketFlags.None, _ep);
     }
 
     private async Task SendToUnconnected(NetMessageWriter msg, EndPoint recipient)
     {
         msg.PrepareSendUnconnected();
-        await Socket.SendToAsync(msg.DataSegmentOut, SocketFlags.None, recipient);
+        await socket.SendToAsync(msg.DataSegmentOut, SocketFlags.None, recipient);
     }
 
     public async Task SendTo(NetMessageWriter msg, EndPoint recipient)
     {
         msg.PrepareSend();
-        await Socket.SendToAsync(msg.DataSegmentOut, SocketFlags.None, recipient);
+        await socket.SendToAsync(msg.DataSegmentOut, SocketFlags.None, recipient);
     }
 
     public async Task SendToAll(NetMessageWriter msg)
@@ -245,13 +338,13 @@ public class PonkerNet
         msg.PrepareSend();
         for(int i = 0; i < _acceptedPeersList.Count; i++)
         {
-            await Socket.SendToAsync(msg.DataSegmentOut, SocketFlags.None, _acceptedPeersList[i].EndPoint);
+            await socket.SendToAsync(msg.DataSegmentOut, SocketFlags.None, _acceptedPeersList[i].EndPoint);
         }
     }
 
     public async Task Send(NetMessageWriter msg)
     {
         msg.PrepareSend();
-        await Socket.SendToAsync(msg.DataSegmentOut, SocketFlags.None, _ep);
+        await socket.SendToAsync(msg.DataSegmentOut, SocketFlags.None, _ep);
     }
 }
