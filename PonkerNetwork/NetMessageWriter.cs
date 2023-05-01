@@ -51,8 +51,8 @@ public class NetMessageWriter : NetMessage
     
     public void Write(uint data)
     {
-        Array.Copy(BitConverter.GetBytes(data), 0, Buffer, Current, Util.SIZE_UINT);
-        Current += Util.SIZE_UINT;
+        Array.Copy(BitConverter.GetBytes(data), 0, Buffer, Current, Util.SIZE_INT);
+        Current += Util.SIZE_INT;
     }
     
     public void Write(short data)
@@ -63,8 +63,8 @@ public class NetMessageWriter : NetMessage
     
     public void Write(ushort data)
     {
-        Array.Copy(BitConverter.GetBytes(data), 0, Buffer, Current, Util.SIZE_USHORT);
-        Current += Util.SIZE_USHORT;
+        Array.Copy(BitConverter.GetBytes(data), 0, Buffer, Current, Util.SIZE_SHORT);
+        Current += Util.SIZE_SHORT;
     }
 
     public void Write(string text)
@@ -88,11 +88,16 @@ public class NetMessageWriter : NetMessage
         Write(WriteBuffer, text.Length);
     }
 
+    public void Write<T>(T pkMsg) where T : IPacket
+    {
+        byte packetId = (byte)Net.Services.Get<T>();
+        Write(packetId);
+        pkMsg.Write(this);
+    }
+    
     public void WritePacket<T>(T pkMsg) where T : IPacket
     {
-        byte id = (byte)Net.Services.Get<T>();
-        Write(id);
-        pkMsg.Write(this);
+        Write(pkMsg);
     }
     
 }

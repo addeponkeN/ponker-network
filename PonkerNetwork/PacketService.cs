@@ -65,6 +65,11 @@ public class PacketService
 
         _subs.Add(typeof(T), Value);
     }
+    
+    public bool Unsubscribe<T>() where T : IPacket
+    {
+        return _subs.Remove(typeof(T));
+    }
 
     internal IPacket CreatePacket(int id)
     {
@@ -85,5 +90,10 @@ public class PacketService
     {
         var action = _subs[packetType];
         action.Invoke(packet, netPeer);
+    }
+
+    public void ClearSubscriptions()
+    {
+        _subs.Clear();
     }
 }

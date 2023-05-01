@@ -17,7 +17,7 @@ internal static class Program
             Secret = NetSettings.HelloMsg
         };
 
-        client = new PonkerNet(c);
+        client = new PonkerNet(c){Name = "CLIENT"};
         client.RegisterPackets();
         client.Start();
 
@@ -30,6 +30,8 @@ internal static class Program
 
         new Thread(GameLoop) {IsBackground = true,}.Start();
 
+        Log.D("ENTER to connect");
+        Console.ReadLine();
         Log.D("Connecting...");
         
         await client.Connect(IPAddress.Loopback, NetSettings.Port, NetSettings.HelloMsg);

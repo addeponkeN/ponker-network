@@ -6,8 +6,9 @@ namespace PonkerNetwork.Server;
 
 class Program
 {
-    private static PonkerNet server;
+    private static PonkerNet _server;
     private static NetMessageWriter _writer;
+    
     static async Task Main(params string[] args)
     {
         Console.Title = "SERVER";
@@ -17,24 +18,24 @@ class Program
             Secret = NetSettings.HelloMsg
         };
 
-        server = new PonkerNet(c);
+        _server = new PonkerNet(c){Name = "SERVER"};
 
-        server.RegisterPackets();
-        server.Start(NetSettings.Port);
+        _server.RegisterPackets();
+        _server.Start(NetSettings.Port);
 
-        _writer = server.CreateMessage();
+        _writer = _server.CreateMessage();
         
-        server.Services.Subscribe<ChatMessagePacket>(ChatMessageReceive);
-        server.Services.Subscribe<PlayerJoinPacket>(PlayerJoined);
+        _server.Services.Subscribe<ChatMessagePacket>(ChatMessageReceive);
+        _server.Services.Subscribe<PlayerJoinPacket>(PlayerJoined);
 
-        Console.WriteLine("<ENTER> to start server");
-        Console.ReadLine();
+        // Console.WriteLine("<ENTER> to start server");
+        // Console.ReadLine();
         Console.WriteLine("server started");
 
         while(true)
         {
             Thread.Sleep(50);
-            await server.ReadMessagesAsync();
+            await _server.ReadMessagesAsync();
         }
     }
 
@@ -48,6 +49,6 @@ class Program
         Log.D($"ChatMessage: {pkt.Message}");
         _writer.Recycle();
         _writer.WritePacket(pkt);
-        await server.SendToAll(_writer);
+        await _server.SendToAll(_writer);
     }
 }

@@ -8,6 +8,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PonkerNetwork.Server", "Exa
 EndProject
 Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "PonkerNetwork.Shared", "Example\PonkerNetwork.Shared\PonkerNetwork.Shared.shproj", "{7A2A1F51-FA4E-4743-963A-F0438CE375F1}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PonkerNetwork.Tests", "PonkerNetwork.Tests\PonkerNetwork.Tests.csproj", "{A997B52A-ED03-4E1A-85DE-2F402F0236F4}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -26,5 +28,9 @@ Global
 		{B76FF2B4-CC3A-4F78-9388-A3032BB568DB}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B76FF2B4-CC3A-4F78-9388-A3032BB568DB}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B76FF2B4-CC3A-4F78-9388-A3032BB568DB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A997B52A-ED03-4E1A-85DE-2F402F0236F4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A997B52A-ED03-4E1A-85DE-2F402F0236F4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A997B52A-ED03-4E1A-85DE-2F402F0236F4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A997B52A-ED03-4E1A-85DE-2F402F0236F4}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

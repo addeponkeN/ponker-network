@@ -62,6 +62,11 @@ public class NetMessageReader : NetMessage
         Current += Util.SIZE_SHORT;
         return value;
     }
+
+    public void Read(out string v)
+    {
+        v = ReadString();
+    }
     
     public string ReadString()
     {
