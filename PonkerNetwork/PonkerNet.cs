@@ -46,6 +46,8 @@ public class PonkerNet
     /// </summary>
     private List<NetPeer> _peersToConnectTo = new();
 
+    private DateTime _lastPingCheckTime;
+
     private NetMessageReader _reader;
 
     public event OnConnectedEvent OnConnectedEvent;
@@ -71,6 +73,7 @@ public class PonkerNet
         Config = cfg;
         Services = new(this);
         RegisterBaseServices();
+        Services.Subscribe<PingPongPacket>(HandlePingPongPacket);
         NetStatus = NetStatusTypes.Disconnected;
     }
 
@@ -107,11 +110,13 @@ public class PonkerNet
         if(port <= 0)
             return;
 
+        _lastPingCheckTime = DateTime.Now;
+
         //  server
         NetStatus = NetStatusTypes.Host;
         _ep = new IPEndPoint(IPAddress.Any, port);
         socket.Bind(_ep);
-        // StartListen();
+
     }
 
     public async Task Connect(string ip, int port, string secret)
@@ -169,8 +174,53 @@ public class PonkerNet
         SendUnconnected(msg);
     }
 
+    private void HandlePingPongPacket(PingPongPacket pkt, NetPeer peer)
+    {
+        if(NetStatus == NetStatusTypes.Host)
+        {
+            // Log.D("ping receive");
+            SendPingPong(peer, DateTime.Now);
+            Log.D("sent pong");
+        }
+        else
+        {
+            // Log.D("pong receive");
+            var now = DateTime.Now;
+            var diff = now.Subtract(peer.LastPingDate);
+            Log.D($"pingpong time {diff.TotalMilliseconds}ms");
+        }
+    }
+
+    async Task SendPingPong(NetPeer peer, DateTime now)
+    {
+        var pingPacket = new PingPongPacket();
+        var writer = CreateMessage();
+        writer.Write(pingPacket);
+        await SendTo(writer, peer.EndPoint);
+        peer.LastPingDate = now;
+    }
+
     public async Task ReadMessagesAsync()
     {
+        // Log.D("reading");
+        if(NetStatus == NetStatusTypes.Connected)
+        {
+            var dateNow = DateTime.Now;
+            if(dateNow.Subtract(_lastPingCheckTime) > TimeSpan.FromMilliseconds(Config.PingPongInterval))
+            {
+                for(int i = 0; i < _acceptedPeersList.Count; i++)
+                {
+                    var pingPeer = _acceptedPeersList[i];
+                    if(dateNow.Subtract(pingPeer.LastPingDate) > TimeSpan.FromMilliseconds(Config.PingPongInterval))
+                    {
+                        await SendPingPong(pingPeer, dateNow);
+                        // Log.D("sent ping");
+                    }
+                }
+                _lastPingCheckTime = dateNow;
+            }
+        }
+
         for(int i = 0; i < _peersToConnectTo.Count; i++)
         {
             var conPeer = _peersToConnectTo[i];
@@ -192,12 +242,12 @@ public class PonkerNet
 
         if(IsPeerAccepted(res.RemoteEndPoint, out NetPeer peer))
         {
-            Log.D($"[{Name}]Received '{res.ReceivedBytes}' connected bytes");
+            // Log.D($"[{Name}]Received '{res.ReceivedBytes}' connected bytes");
             ReadConnectedData(res, peer);
         }
         else
         {
-            Log.D($"[{Name}]Received '{res.ReceivedBytes}' unconnected bytes");
+            // Log.D($"[{Name}]Received '{res.ReceivedBytes}' unconnected bytes");
             await ReadUnconnectedData(res);
         }
     }

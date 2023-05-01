@@ -1,7 +1,4 @@
-using System.Diagnostics;
 using System.Linq.Expressions;
-using System.Reflection;
-using PonkerNetwork.Utility;
 
 namespace PonkerNetwork;
 
@@ -9,7 +6,6 @@ public class PacketService
 {
     private List<Type> _services = new();
     private Dictionary<Type, int> _hashIndexes = new();
-    private Dictionary<Type, Action<IPacket, NetPeer>> _subs = new();
 
     private Dictionary<Type, Func<IPacket>> _compiledPacketConstructors;
     private Dictionary<int, Func<IPacket>> _compiledPacketConstructorsId;
@@ -56,19 +52,32 @@ public class PacketService
         _hashIndexes.Add(typeof(T), _hashIndexes.Count);
     }
 
-    public void Subscribe<T>(Action<T, NetPeer> action) where T : IPacket
-    {
-        void Value(IPacket packet, NetPeer peer)
-        {
-            action((T)packet, peer);
-        }
+    public delegate void PacketHandler<in T>(T packet, NetPeer sender) where T : IPacket;
 
+    private Dictionary<Type, PacketHandler<IPacket>> _subs = new();
+
+    public void Subscribe<T>(PacketHandler<T> action) where T : IPacket
+    {
+        void Value(IPacket packet, NetPeer peer) => action((T)packet, peer);
         _subs.Add(typeof(T), Value);
     }
-    
+
     public bool Unsubscribe<T>() where T : IPacket
     {
         return _subs.Remove(typeof(T));
+    }
+
+    internal void TriggerPacket(Type packetType, IPacket packet, NetPeer netPeer)
+    {
+        if(_subs.TryGetValue(packetType, out var action))
+        {
+            action.Invoke(packet, netPeer);
+        }
+    }
+
+    public void ClearSubscriptions()
+    {
+        _subs.Clear();
     }
 
     internal IPacket CreatePacket(int id)
@@ -84,16 +93,5 @@ public class PacketService
     internal int Get<T>() where T : IPacket
     {
         return _hashIndexes[typeof(T)];
-    }
-
-    internal void TriggerPacket(Type packetType, IPacket packet, NetPeer netPeer)
-    {
-        var action = _subs[packetType];
-        action.Invoke(packet, netPeer);
-    }
-
-    public void ClearSubscriptions()
-    {
-        _subs.Clear();
     }
 }

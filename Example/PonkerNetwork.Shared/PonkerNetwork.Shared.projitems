@@ -13,5 +13,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)OmegaNetExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Packets\ChatMessagePacket.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Packets\PlayerJoinPacket.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Packets\PlayerPositionPacket.cs" />
   </ItemGroup>
 </Project>

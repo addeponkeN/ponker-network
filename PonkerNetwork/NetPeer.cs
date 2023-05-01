@@ -18,6 +18,8 @@ public class NetPeer
     public uint UniqueId;
     public IPEndPoint EndPoint;
 
+    public DateTime LastPingDate;
+
     public NetPeer(IPEndPoint resRemoteEndPoint)
     {
         EndPoint = resRemoteEndPoint;

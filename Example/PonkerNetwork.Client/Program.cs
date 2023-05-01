@@ -35,12 +35,11 @@ internal static class Program
         Log.D("Connecting...");
         
         await client.Connect(IPAddress.Loopback, NetSettings.Port, NetSettings.HelloMsg);
-        // await client.Connect(IPAddress.Parse("192.168.1.145"), NetSettings.Port, NetSettings.HelloMsg);
         
         while(true)
         {
-            Thread.Sleep(10);
-            await client.ReadMessagesAsync();
+            Thread.Sleep(1);
+            client.ReadMessagesAsync();
         }
         
     }
@@ -51,7 +50,9 @@ internal static class Program
 
         while(true)
         {
-            string input = Console.ReadLine();
+            Thread.Sleep(100);
+            // string input = Console.ReadLine();
+            string input = String.Empty;
 
             if(client.NetStatus != NetStatusTypes.Connected)
             {
@@ -68,8 +69,6 @@ internal static class Program
             await client.Send(writer);
 
             writer.Recycle();
-
-            Console.WriteLine($"sent: {input}");
         }
     }
 

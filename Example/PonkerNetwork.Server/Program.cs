@@ -27,14 +27,14 @@ class Program
         
         _server.Services.Subscribe<ChatMessagePacket>(ChatMessageReceive);
         _server.Services.Subscribe<PlayerJoinPacket>(PlayerJoined);
-
+        
         // Console.WriteLine("<ENTER> to start server");
         // Console.ReadLine();
         Console.WriteLine("server started");
 
         while(true)
         {
-            Thread.Sleep(50);
+            Thread.Sleep(1);
             await _server.ReadMessagesAsync();
         }
     }

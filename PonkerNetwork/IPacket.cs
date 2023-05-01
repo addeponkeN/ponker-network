@@ -6,7 +6,7 @@ public interface IPacket
     void Read(NetMessageReader reader);
 }
 
-public struct PingPacket : IPacket
+public struct PingPongPacket : IPacket
 {
     public void Write(NetMessageWriter writer)
     {

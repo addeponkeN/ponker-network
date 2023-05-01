@@ -6,8 +6,10 @@ public class NetConfig
     public string Secret;
     public uint BufferSize;
 
-    public float TimeoutTime = 10_000f;
-    public float PingPongTime = 3_000f;
+    public int TimeoutTime = 10_000;
+    public int PingPongTime = 3_000;
+
+    public int PingPongInterval = 1_000;
 
     public int RetryConnectTime = 2_000;
 
