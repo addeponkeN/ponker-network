@@ -1,6 +1,5 @@
-# WIP - ponker-network 
+# v0.1 - Soon™
 Early stages of a .NET6 UDP Networking library
-
 
 
 ## Features/Goals
