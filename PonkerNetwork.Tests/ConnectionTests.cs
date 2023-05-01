@@ -1,8 +1,6 @@
-using System.Diagnostics;
 using System.Net;
 using System.Text;
 using PonkerNetwork.Tests.TestPackets;
-using PonkerNetwork.Utility;
 
 namespace PonkerNetwork.Tests;
 
@@ -36,9 +34,6 @@ public class ConnectionTests
         };
         _client.Start(4001);
 
-        // _server.StartServerLoop();
-        // _client.StartClientLoop();
-
         _writer = _client.CreateMessage();
     }
 
@@ -59,14 +54,17 @@ public class ConnectionTests
         _client.OnConnectedEvent += OnClientOnOnConnectedEvent;
 
         _client.Connect(IPAddress.Loopback, 4000, cfg.Secret);
-        Thread.Sleep(1);
-        _server.ReadMessagesAsync();
-        Thread.Sleep(1);
-        _client.ReadMessagesAsync();
+
+        while(_client.NetStatus != NetStatusTypes.Connected)
+        {
+            Thread.Sleep(1);
+            _server.ReadMessagesAsync();
+            _client.ReadMessagesAsync();
+        }
 
         bool connected = _client.NetStatus == NetStatusTypes.Connected;
 
-        Assert.IsTrue(connected, "OnConnectedEvent was not raised within 1s.");
+        Assert.IsTrue(connected, "Failed to connect");
 
         _client.OnConnectedEvent -= OnClientOnOnConnectedEvent;
     }

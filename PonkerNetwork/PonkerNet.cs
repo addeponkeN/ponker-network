@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using PonkerNetwork.Utility;
@@ -15,6 +14,7 @@ public enum NetStatusTypes
 {
     None,
     Connected,
+    Unconnected,
     Connecting,
     Handshaking,
     Disconnected,
@@ -28,7 +28,7 @@ public class PonkerNet
     internal static readonly byte HeaderSize = 0;
 
     public string Name;
-    
+
     public NetConfig Config;
     public PacketService Services;
 
@@ -133,7 +133,8 @@ public class PonkerNet
 
     private bool ConnectToPeer(NetPeer peer)
     {
-        if(NetStatus == NetStatusTypes.Connected)
+        if(NetStatus == NetStatusTypes.Unconnected ||
+           NetStatus == NetStatusTypes.Connected)
             return true;
 
         Log.D($"Connecting to '{peer.EndPoint}'...");
@@ -150,11 +151,12 @@ public class PonkerNet
             }
             else
             {
-                NetStatus = NetStatusTypes.Connected;
+                NetStatus = NetStatusTypes.Unconnected;
             }
         }, null);
 
-        return NetStatus == NetStatusTypes.Connected;
+        return NetStatus == NetStatusTypes.Unconnected ||
+               NetStatus == NetStatusTypes.Connected;
     }
 
     private void OnConnectedToPeer(NetPeer peer)
@@ -225,7 +227,6 @@ public class PonkerNet
             IPacket packet = _reader.ReadPacket(out Type packetType);
             Services.TriggerPacket(packetType, packet, peer);
         }
-
     }
 
     private async Task ReadUnconnectedData(SocketReceiveMessageFromResult res)
@@ -236,7 +237,7 @@ public class PonkerNet
         var unconnectedMessageType = (UnconnectedMessageTypes)_reader.ReadByte(); //_buffer[0];
 
         Log.D(Name);
-        
+
         switch(unconnectedMessageType)
         {
             case UnconnectedMessageTypes.HandshakeRequest:
