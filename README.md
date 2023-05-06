@@ -29,3 +29,41 @@ client.Sub<ChatMessagePacket>((chatMessagePacket, peerSender) =>
 
 client.Shutdown();
 ```
+### Server example
+```
+var server = new PonkerNet(connectKey: "ponkernetexample");
+server.Start(port: 4000);   //  enter port to listen to
+
+server.Sub<ChatMessagePacket>((chatMessagePacket, peerSender) =>
+{
+    //  received chat message from client 
+    NetMessageWriter writer = client.CreateMessage();   //  get writer
+    writer.WritePacket(chatMessagePacket);              //  write the packet
+    client.SendToAll(writer);                           //  send message
+});
+
+server.Shutdown();
+```
+
+### Shared
+```
+public struct ChatMessagePacket : IPacket
+{
+    public string Message;
+
+    public ChatMessagePacket(string message)
+    {
+        Message = message;
+    }
+
+    public void Write(NetMessageWriter writer)
+    {
+        writer.WriteString8(Message);
+    }
+
+    public void Read(NetMessageReader reader)
+    {
+        reader.ReadString8(out Message);
+    }
+}
+```
