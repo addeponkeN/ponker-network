@@ -15,6 +15,13 @@ Early stages of a .NET6 UDP Networking library
 
 ### Client example
 ``` csharp
+public struct ChatMessagePacket : IPacket
+{
+    public string Message;
+    public void Write(NetMessageWriter writer) => writer.WriteString8(Message);
+    public void Read(NetMessageReader reader) => reader.ReadString8(out Message);
+}
+
 PonkerNet client = new PonkerNet(connectKey: "ponkernetexample");
 client.Start();
 client.Connect(ipAddress: "localhost", port: 4000);
@@ -36,6 +43,13 @@ client.Shutdown();
 ```
 ### Server example
 ``` csharp
+public struct ChatMessagePacket : IPacket
+{
+    public string Message;
+    public void Write(NetMessageWriter writer) => writer.WriteString8(Message);
+    public void Read(NetMessageReader reader) => reader.ReadString8(out Message);
+}
+
 PonkerNet server = new PonkerNet(connectKey: "ponkernetexample");
 server.Start(port: 4000);   //  enter port to listen to
 
