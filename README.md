@@ -15,7 +15,7 @@ Early stages of a .NET6 UDP Networking library
 
 ### Client example
 ``` csharp
-var client = new PonkerNet(connectKey: "ponkernetexample");
+PonkerNet client = new PonkerNet(connectKey: "ponkernetexample");
 client.Start();
 client.Connect(ipAddress: "localhost", port: 4000);
 client.OnConnectionAccepted += peer =>
@@ -31,7 +31,7 @@ client.Shutdown();
 ```
 ### Server example
 ``` csharp
-var server = new PonkerNet(connectKey: "ponkernetexample");
+PonkerNet server = new PonkerNet(connectKey: "ponkernetexample");
 server.Start(port: 4000);   //  enter port to listen to
 
 server.Sub<ChatMessagePacket>((chatMessagePacket, peerSender) =>
