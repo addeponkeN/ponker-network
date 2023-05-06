@@ -22,6 +22,8 @@ client.OnConnectionAccepted += peer =>
 {
     Console.WriteLine($"Successfully connected to host '{peer}'!");
 };
+
+//  subscribe to the chat message packet
 client.Sub<ChatMessagePacket>((chatMessagePacket, peerSender) =>
 {
     Console.WriteLine($"'{peerSender}' says: {chatMessagePacket.Message}");
@@ -34,6 +36,7 @@ client.Shutdown();
 PonkerNet server = new PonkerNet(connectKey: "ponkernetexample");
 server.Start(port: 4000);   //  enter port to listen to
 
+//  subscribe to the chat message packet
 server.Sub<ChatMessagePacket>((chatMessagePacket, peerSender) =>
 {
     //  received chat message from client 
