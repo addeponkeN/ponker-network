@@ -26,8 +26,11 @@ client.OnConnectionAccepted += peer =>
 //  subscribe to the chat message packet
 client.Sub<ChatMessagePacket>((chatMessagePacket, peerSender) =>
 {
-    Console.WriteLine($"'{peerSender}' says: {chatMessagePacket.Message}");
+    //  received a chat message packet
+    Console.WriteLine($"{chatMessagePacket.Message}");
 });
+
+clioe
 
 client.Shutdown();
 ```
@@ -39,7 +42,7 @@ server.Start(port: 4000);   //  enter port to listen to
 //  subscribe to the chat message packet
 server.Sub<ChatMessagePacket>((chatMessagePacket, peerSender) =>
 {
-    //  received chat message from client 
+    //  received a chat message
     NetMessageWriter writer = client.CreateMessage();   //  get writer
     writer.WritePacket(chatMessagePacket);              //  write the packet
     client.SendToAll(writer);                           //  send message
