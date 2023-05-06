@@ -30,7 +30,7 @@ client.Sub<ChatMessagePacket>((chatMessagePacket, peerSender) =>
 client.Shutdown();
 ```
 ### Server example
-```
+``` csharp
 var server = new PonkerNet(connectKey: "ponkernetexample");
 server.Start(port: 4000);   //  enter port to listen to
 
@@ -46,7 +46,7 @@ server.Shutdown();
 ```
 
 ### Shared
-```
+``` csharp
 public struct ChatMessagePacket : IPacket
 {
     public string Message;
