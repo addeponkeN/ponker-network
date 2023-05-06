@@ -1,4 +1,5 @@
 ﻿using System.Net;
+using System.Security.Cryptography.X509Certificates;
 using PonkerNetwork.Shared;
 using PonkerNetwork.Shared.Packets;
 using PonkerNetwork.Utility;
@@ -12,19 +13,21 @@ internal static class Program
     static void ServerExample()
     {
         var server = new PonkerNet(connectKey: "ponkernetexample");
-        server.Start(port: 4000);   //  enter port to listen to
+        server.Start(port: 4000); //  enter port to listen to
         
+        server.Services.Register<ChatMessagePacket>(deliveryMethod: DeliveryMethod.Reliable);
+
         server.Sub<ChatMessagePacket>((chatMessagePacket, peerSender) =>
         {
             //  received chat message from client 
             NetMessageWriter writer = client.CreateMessage();   //  get writer
-            writer.WritePacket(chatMessagePacket);              //  write the packet
+            writer.WritePacket(chatMessagePacket);              //  reuse and write packet
             client.SendToAll(writer);                           //  send message
         });
-        
+
         server.Shutdown();
     }
-    
+
     static void ClientExample()
     {
         var client = new PonkerNet(connectKey: "ponkernetexample");
@@ -33,13 +36,24 @@ internal static class Program
         client.OnConnectionAccepted += peer =>
         {
             Console.WriteLine($"Successfully connected to host '{peer}'!");
+            ChatMessagePacket chatMsg = new() {Message = "Wololo"};     //  create packet
+            NetMessageWriter writer = client.CreateMessage();           //  get writer
+            writer.Write(chatMsg);                                      //  write packet
+            client.Send(writer);                                        //  send
+            writer.Recycle();                                           //  recycle writer
         };
+        
+        //  subscribe to packet
         client.Sub<ChatMessagePacket>((chatMessagePacket, peerSender) =>
         {
             Console.WriteLine($"'{peerSender}' says: {chatMessagePacket.Message}");
         });
-        
+
         client.Shutdown();
+    }
+
+    static void Shared()
+    {
     }
 
     static void Main(params string[] args)
@@ -90,7 +104,7 @@ internal static class Program
             if(string.IsNullOrEmpty(input))
                 continue;
 
-            var pkMsg = new ChatMessagePacket(input);
+            var pkMsg = new ChatMessagePacket() {Message = input};
             writer.WritePacket(pkMsg);
 
             client.Send(writer);

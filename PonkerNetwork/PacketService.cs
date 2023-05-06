@@ -45,24 +45,17 @@ public class PacketService
     private List<Type> _services = new();
 
     private Dictionary<Type, int> _hashIndexes = new();
-
-    // private Dictionary<Type, PacketHandler<IPacket>> _subs = new();
     private Dictionary<Type, IPacketSubscriber> _subscribers = new();
-
-    private Dictionary<Type, Func<IPacket>> _compiledPacketConstructors;
     private Dictionary<int, Func<IPacket>> _compiledPacketConstructorsId;
 
-    private PonkerNet _net;
 
-    public PacketService(PonkerNet net)
+    public PacketService()
     {
-        _net = net;
         RegisterAllPackets();
     }
 
     private void RegisterAllPackets()
     {
-        _compiledPacketConstructors = new();
         _compiledPacketConstructorsId = new();
 
         var types = AppDomain.CurrentDomain.GetAssemblies()
@@ -76,7 +69,6 @@ public class PacketService
             var convertExpr = Expression.Convert(ctor, typeof(IPacket));
             var lambda = Expression.Lambda<Func<IPacket>>(convertExpr);
             var expr = lambda.Compile();
-            _compiledPacketConstructors.Add(type, expr);
             _compiledPacketConstructorsId.Add(i++, expr);
             Register(type);
         }
@@ -90,6 +82,13 @@ public class PacketService
 
     public void Register<T>() where T : IPacket
     {
+        _services.Add(typeof(T));
+        _hashIndexes.Add(typeof(T), _hashIndexes.Count);
+    }
+    
+    public void Register<T>(DeliveryMethod deliveryMethod) where T : IPacket
+    {
+        //  todo
         _services.Add(typeof(T));
         _hashIndexes.Add(typeof(T), _hashIndexes.Count);
     }
@@ -119,7 +118,7 @@ public class PacketService
         }
     }
 
-    public void Trigger(Type type, IPacket packet, NetPeer peer)
+    internal void Trigger(Type type, IPacket packet, NetPeer peer)
     {
         if(_subscribers.TryGetValue(type, out var sub))
         {

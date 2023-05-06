@@ -63,19 +63,30 @@ public class NetMessageReader : NetMessage
         return value;
     }
 
+    /// <summary>
+    /// Read a string with a maximum length of 32 bits
+    /// </summary>
     public void Read(out string v)
     {
         v = ReadString();
     }
     
+    /// <summary>
+    /// Read a string with a maximum length of 32 bits
+    /// </summary>
     public string ReadString()
     {
-        int length = ReadInt();
-        var value = Encoding.UTF8.GetString(_readBuffer, Current, length);
-        Current += length;
-        return value;
+        ReadString(out string str);
+        return str;
+        // int length = ReadInt();
+        // var value = Encoding.UTF8.GetString(_readBuffer, Current, length);
+        // Current += length;
+        // return value;
     }
     
+    /// <summary>
+    /// Read a string with a maximum length of 32 bits
+    /// </summary>
     public void ReadString(out string str)
     {
         int stringLength = ReadInt();
@@ -83,6 +94,9 @@ public class NetMessageReader : NetMessage
         Current += stringLength;
     }
     
+    /// <summary>
+    /// Read a string with a maximum length of 8 bits (256)
+    /// </summary>
     public void ReadString8(out string str)
     {
         int stringLength = ReadByte();
@@ -90,6 +104,9 @@ public class NetMessageReader : NetMessage
         Current += stringLength;
     }
     
+    /// <summary>
+    /// Read a string with a maximum length of 16 bits (65535)
+    /// </summary>
     public void ReadString16(out string str)
     {
         int stringLength = ReadUInt16();
@@ -97,7 +114,7 @@ public class NetMessageReader : NetMessage
         Current += stringLength;
     }
 
-    public IPacket ReadPacket()
+    internal IPacket ReadPacket()
     {
         var id = ReadByte();
         var packet = Net.Services.CreatePacket(id);
@@ -105,7 +122,7 @@ public class NetMessageReader : NetMessage
         return packet;
     }
     
-    public IPacket ReadPacket(out Type packetType)
+    internal IPacket ReadPacket(out Type packetType)
     {
         var id = ReadByte();
         packetType = Net.Services.Get(id);

@@ -20,7 +20,6 @@ public partial class PonkerNet
     private byte[] _buffer;
     private EndPoint _ep;
     private ArraySegment<byte> _bufferSeg;
-    
 
     private Thread _netLogicThread;
     private bool _isReceiving;
@@ -34,7 +33,6 @@ public partial class PonkerNet
 
     public NetStateTypes State { get; internal set; }
 
-
     public NetStats Stats { get; }
 
     public PonkerNet(string connectKey) : this(new NetConfig(connectKey)) { }
@@ -42,7 +40,7 @@ public partial class PonkerNet
     {
         Config = cfg;
         Stats = new();
-        Services = new(this);
+        Services = new();
         RegisterBaseServices();
         
         Sub<PingPongPacket>(HandlePingPongPangPacket);
