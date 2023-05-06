@@ -4,21 +4,22 @@ public class NetConfig
 {
     public int Port;
     public string Secret;
-    public uint BufferSize;
+    public int BufferSize;
 
     public int TimeoutTime = 10_000;
     public int PingPongTime = 3_000;
 
-    public int PingPongInterval = 1_000;
+    public int PingPongInterval = 2_500;
 
-    public int RetryConnectTime = 2_000;
+    public int RetryConnectTime = 1_000;
 
-    public NetConfig()
+    public NetConfig(string secretMessage)
     {
+        Secret = secretMessage;
         BufferSize = 4096;
     }
 
-    public NetConfig(int port) : this()
+    public NetConfig(string secretMessage, int port) : this(secretMessage)
     {
         Port = port;
     }

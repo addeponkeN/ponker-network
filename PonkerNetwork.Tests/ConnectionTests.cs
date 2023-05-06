@@ -17,10 +17,7 @@ public class ConnectionTests
     [OneTimeSetUp]
     public void OneTimeSetup()
     {
-        cfg = new NetConfig
-        {
-            Secret = "ago"
-        };
+        cfg = new NetConfig("ago");
 
         _server = new PonkerNet(cfg)
         {
@@ -53,16 +50,16 @@ public class ConnectionTests
 
         _client.OnConnectedEvent += OnClientOnOnConnectedEvent;
 
-        _client.Connect(IPAddress.Loopback, 4000, cfg.Secret);
+        _client.Connect(IPAddress.Loopback, 4000);
 
-        while(_client.NetStatus != NetStatusTypes.Connected)
+        while(_server.State != NetStateTypes.Running)
         {
             Thread.Sleep(1);
-            _server.ReadMessagesAsync();
-            _client.ReadMessagesAsync();
+            // _server.ReadMessagesAsync();
+            // _client.ReadMessagesAsync();
         }
 
-        bool connected = _client.NetStatus == NetStatusTypes.Connected;
+        bool connected = _client.State == NetStateTypes.Running;
 
         Assert.IsTrue(connected, "Failed to connect");
 
@@ -77,7 +74,7 @@ public class ConnectionTests
         bool correctMessage = false;
         bool packetReceived = false;
 
-        _server.Services.Subscribe<StringTestPacket>((pkt, _) =>
+        _server.Services.Sub<StringTestPacket>((pkt, _) =>
         {
             packetReceived = true;
             correctMessage = pkt.Value == message;
@@ -90,7 +87,7 @@ public class ConnectionTests
         while(!correctMessage)
         {
             Thread.Sleep(1);
-            _server.ReadMessagesAsync();
+            // _server.ReadMessagesAsync();
         }
 
         Assert.IsTrue(packetReceived, "Server never received the packet");
@@ -116,7 +113,7 @@ public class ConnectionTests
             strings[i] = Encoding.ASCII.GetString(charBuffer);
         }
 
-        _server.Services.Subscribe<StringTestPacket>((pkt, _) =>
+        _server.Sub<StringTestPacket>((pkt, _) =>
         {
             string str = strings[index++];
             if(pkt.Value == str)
@@ -136,7 +133,7 @@ public class ConnectionTests
         while(correctMessagesCounter < packetCount)
         {
             Thread.Sleep(1);
-            _server.ReadMessagesAsync();
+            // _server.ReadMessagesAsync();
         }
 
         Assert.IsTrue(correctMessagesCounter == packetCount, "Server never received a packet");

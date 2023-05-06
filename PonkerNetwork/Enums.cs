@@ -1,11 +1,21 @@
 namespace PonkerNetwork;
 
-public enum NetStates
+public enum NetConnectionTypes : byte
 {
+    None,
     Disconnected,
     Connecting,
     Handshaking,
     Connected,
+    Disconnecting,
+    Host,
+}
+
+public enum NetStateTypes : byte
+{
+    None,
+    Running,
+    Shutdown
 }
 
 public enum UnconnectedMessageTypes : byte

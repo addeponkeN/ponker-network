@@ -9,6 +9,7 @@
     <Import_RootNamespace>PonkerNetwork.Shared</Import_RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)ConsoleExtended.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)NetSettings.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)OmegaNetExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Packets\ChatMessagePacket.cs" />

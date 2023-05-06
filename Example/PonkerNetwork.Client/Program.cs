@@ -9,54 +9,81 @@ internal static class Program
 {
     private static PonkerNet client;
 
-    static async Task Main(params string[] args)
+    static void ServerExample()
     {
-        Console.Title = "CLIENT";
-        var c = new NetConfig()
+        var server = new PonkerNet(connectKey: "ponkernetexample");
+        server.Start(port: 4000);   //  enter port to listen to
+        
+        server.Sub<ChatMessagePacket>((chatMessagePacket, peerSender) =>
         {
-            Secret = NetSettings.HelloMsg
-        };
-
-        client = new PonkerNet(c){Name = "CLIENT"};
-        client.RegisterPackets();
+            //  received chat message from client 
+            NetMessageWriter writer = client.CreateMessage();   //  get writer
+            writer.WritePacket(chatMessagePacket);              //  write the packet
+            client.SendToAll(writer);                           //  send message
+        });
+        
+        server.Shutdown();
+    }
+    
+    static void ClientExample()
+    {
+        var client = new PonkerNet(connectKey: "ponkernetexample");
         client.Start();
-
-        client.Services.Subscribe<ChatMessagePacket>(ChatMessage);
-
-        client.OnConnectedEvent += _ =>
+        client.Connect(ipAddress: "localhost", port: 4000);
+        client.OnConnectionAccepted += peer =>
         {
-            Log.D("~~ Connected ~~");
+            Console.WriteLine($"Successfully connected to host '{peer}'!");
         };
-
-        new Thread(GameLoop) {IsBackground = true,}.Start();
-
-        Log.D("ENTER to connect");
-        Console.ReadLine();
-        Log.D("Connecting...");
-        
-        await client.Connect(IPAddress.Loopback, NetSettings.Port, NetSettings.HelloMsg);
-        
-        while(true)
+        client.Sub<ChatMessagePacket>((chatMessagePacket, peerSender) =>
         {
-            Thread.Sleep(1);
-            client.ReadMessagesAsync();
-        }
+            Console.WriteLine($"'{peerSender}' says: {chatMessagePacket.Message}");
+        });
         
+        client.Shutdown();
     }
 
-    private static async void GameLoop()
+    static void Main(params string[] args)
+    {
+        Console.Title = "CLIENT";
+
+        client = new PonkerNet(NetSettings.HelloMsg) {Name = "CLIENT"};
+        client.Start();
+
+        //  connect to server
+        client.Connect(ipAddress: "localhost", port: 4000);
+
+        //  subscribe to packets
+        client.Sub<ChatMessagePacket>(ChatMessage /* callback function */);
+        client.Sub<PlayerPositionPacket>(PlayerPosition /* callback function */);
+
+        //  successfully connected to server
+        client.OnConnectionAccepted += peer => { Console.WriteLine($"Connected and accepted to {peer}!"); };
+
+
+        GameLoop();
+    }
+
+
+    private static void PlayerPosition(PlayerPositionPacket packet, NetPeer sender)
+    {
+    }
+
+    private static void ChatMessage(ChatMessagePacket packet, NetPeer peer)
+    {
+        Log.D($"ChatMessage1: {packet.Message}");
+    }
+
+    private static void GameLoop()
     {
         NetMessageWriter writer = client.CreateMessage();
 
         while(true)
         {
-            Thread.Sleep(100);
-            // string input = Console.ReadLine();
-            string input = String.Empty;
+            Thread.Sleep(1);
+            string input = Console.ReadLine();
 
-            if(client.NetStatus != NetStatusTypes.Connected)
+            if(client.State != NetStateTypes.Running)
             {
-                Log.D("not connected");
                 continue;
             }
 
@@ -66,14 +93,9 @@ internal static class Program
             var pkMsg = new ChatMessagePacket(input);
             writer.WritePacket(pkMsg);
 
-            await client.Send(writer);
+            client.Send(writer);
 
             writer.Recycle();
         }
-    }
-
-    private static void ChatMessage(ChatMessagePacket packet, NetPeer peer)
-    {
-        Log.D($"ChatMessage: {packet.Message}");
     }
 }

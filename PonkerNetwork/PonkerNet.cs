@@ -4,77 +4,57 @@ using PonkerNetwork.Utility;
 
 namespace PonkerNetwork;
 
-struct NetHeader
+public partial class PonkerNet
 {
-    // public ushort ArrSize;
-    // public byte DataType;
-}
-
-public enum NetStatusTypes
-{
-    None,
-    Connected,
-    Unconnected,
-    Connecting,
-    Handshaking,
-    Disconnected,
-    Disconnecting,
-    Host,
-}
-
-public class PonkerNet
-{
-    // internal static readonly unsafe byte HeaderSize = (byte)(sizeof(NetHeader));
     internal static readonly byte HeaderSize = 0;
 
     public string Name;
 
-    public NetConfig Config;
-    public PacketService Services;
+    public NetConfig Config { get; private set; }
+    public PacketService Services { get; private set; }
+    internal readonly PeerCollection PeerCollection = new();
 
-    internal Socket socket;
+    internal Socket Socket;
 
     private byte[] _messageBuffer;
     private byte[] _buffer;
     private EndPoint _ep;
     private ArraySegment<byte> _bufferSeg;
-    private Dictionary<EndPoint, NetPeer> _acceptedPeers = new();
-    private List<NetPeer> _acceptedPeersList = new();
+    
 
-    /// <summary>
-    /// peers that you are connecting to
-    /// </summary>
-    private List<NetPeer> _peersToConnectTo = new();
-
-    private DateTime _lastPingCheckTime;
-
+    private Thread _netLogicThread;
+    private bool _isReceiving;
     private NetMessageReader _reader;
+
+    public bool IsRunning => State == NetStateTypes.Running;
 
     public event OnConnectedEvent OnConnectedEvent;
     public event OnConnectionAccepted OnConnectionAccepted;
+    public event OnUnconnectedMessageReceived OnUnconnectedMessageReceived;
 
-    private NetStatusTypes _netStatus;
+    public NetStateTypes State { get; internal set; }
 
-    public NetStatusTypes NetStatus
-    {
-        get => _netStatus;
-        internal set
-        {
-            if(_netStatus != value)
-            {
-                Log.D($"NetStatus: {_netStatus}");
-                _netStatus = value;
-            }
-        }
-    }
 
+    public NetStats Stats { get; }
+
+    public PonkerNet(string connectKey) : this(new NetConfig(connectKey)) { }
     public PonkerNet(NetConfig cfg)
     {
         Config = cfg;
+        Stats = new();
         Services = new(this);
         RegisterBaseServices();
-        Services.Subscribe<PingPongPacket>(HandlePingPongPacket);
-        NetStatus = NetStatusTypes.Disconnected;
+        
+        Sub<PingPongPacket>(HandlePingPongPangPacket);
+
+        // NetStatus = NetConnectionTypes.Disconnected;
+
+        //  init
+        _buffer = new byte[Config.BufferSize];
+        _messageBuffer = new byte[1024];
+        _bufferSeg = new(_buffer);
+        _reader = new NetMessageReader(this, _buffer, _messageBuffer);
+        
     }
 
     private void RegisterBaseServices()
@@ -97,71 +77,162 @@ public class PonkerNet
     /// <param name="port">Listen port</param>
     public void Start(int port = 0)
     {
-        _buffer = new byte[Config.BufferSize];
-        _messageBuffer = new byte[1024];
-        _bufferSeg = new(_buffer);
+        if(IsRunning)
+        {
+            Log.E("Network is already running");
+            return;
+        }
+        
+        Socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+        Socket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.PacketInformation, true);
+        Socket.Blocking = true;
+        
+        StartNetThreads();
 
-        _reader = new NetMessageReader(this, _buffer, _messageBuffer);
-
-        socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-        socket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.PacketInformation, true);
+        State = NetStateTypes.Running;
 
         //  client returns
         if(port <= 0)
             return;
 
-        _lastPingCheckTime = DateTime.Now;
-
         //  server
-        NetStatus = NetStatusTypes.Host;
+        // NetStatus = NetConnectionTypes.Host;
+
         _ep = new IPEndPoint(IPAddress.Any, port);
-        socket.Bind(_ep);
-
+        Socket.Bind(_ep);
+        Log.I($"Listening on port '{port}' ({_ep})");
     }
 
-    public async Task Connect(string ip, int port, string secret)
+
+    private async Task ReceiveLoop()
     {
-        await Connect(IPAddress.Parse(ip), port, secret);
-    }
+        //  wait a bit before starting the loop to let everything else set up. just in case..
+        Thread.Sleep(50);
 
-    public async Task Connect(IPAddress ip, int port, string secret)
-    {
-        _ep = new IPEndPoint(ip, port);
+        Log.D("~ Receive Thread Running ~");
 
-        NetStatus = NetStatusTypes.Connecting;
-
-        var peer = new NetPeer((IPEndPoint)_ep);
-        _peersToConnectTo.Add(peer);
-
-        ConnectToPeer(peer);
-    }
-
-    private bool ConnectToPeer(NetPeer peer)
-    {
-        if(NetStatus == NetStatusTypes.Unconnected ||
-           NetStatus == NetStatusTypes.Connected)
-            return true;
-
-        Log.D($"Connecting to '{peer.EndPoint}'...");
-        socket.BeginConnect(peer.EndPoint, res =>
+        while(IsRunning)
         {
-            socket.EndConnect(res);
+            await UpdateReceive();
+        }
 
-            bool connectStatus = socket.Poll(1000, SelectMode.SelectRead);
-            bool available = socket.Available == 0;
+        Log.D("~ Receive Thread Exit ~");
+    }
 
-            if(connectStatus && available)
+
+    private void StartNetThreads()
+    {
+        _netLogicThread = new Thread(() => Task.Run(LogicLoop))
+        {
+            Name = "PonkerNetwork-AsyncLogicThread",
+            IsBackground = true
+        };
+        _netLogicThread.Start();
+
+        // _netReceiveThread = new Thread(() => Task.Run(ReceiveLoop))
+        // {
+        //     Name = "PonkerNetwork-AsyncReceiveThread",
+        //     IsBackground = true,
+        // };
+        // _netReceiveThread.Start();
+    }
+
+    private async Task LogicLoop()
+    {
+        //  wait a bit before starting the loop to let everything else set up. just in case..
+        Thread.Sleep(10);
+
+        Log.D("~ Logic Thread Running ~");
+
+        while(IsRunning)
+        {
+            await UpdateLogic();
+
+            if(!_isReceiving)
+                UpdateReceive();
+        }
+
+        Log.D("~ Logic Thread Exit ~");
+    }
+
+    //  network logic
+    private async Task UpdateLogic()
+    {
+        for(int i = 0; i < PeerCollection.Peers.Count; i++)
+        {
+            PeerCollection.Peers[i].Update();
+        }
+    }
+
+
+    //  network receive data
+    private async Task UpdateReceive()
+    {
+        if(State != NetStateTypes.Running)
+            return;
+
+        if(Socket.Available == 0)
+            return;
+
+        try
+        {
+            _isReceiving = true;
+            var result = await Socket.ReceiveFromAsync(_bufferSeg, SocketFlags.None, _ep);
+
+            if(result.ReceivedBytes == 0)
             {
-                NetStatus = NetStatusTypes.Connecting;
+                return;
+            }
+
+            Stats.TotalBytesReceived += result.ReceivedBytes;
+
+            if(IsPeerAccepted(result.RemoteEndPoint, out NetPeer peer))
+            {
+                ReadConnectedData(result.ReceivedBytes, peer);
             }
             else
             {
-                NetStatus = NetStatusTypes.Unconnected;
+                ReadUnconnectedData(result.ReceivedBytes, (IPEndPoint)result.RemoteEndPoint);
             }
-        }, null);
+        }
+        catch(SocketException)
+        {
+            Log.W($"Lost connection to remote host ({_ep})");
+        }
+        catch(Exception e)
+        {
+            Log.E(e.ToString());
+        }
+        finally
+        {
+            _isReceiving = false;
+        }
+    }
 
-        return NetStatus == NetStatusTypes.Unconnected ||
-               NetStatus == NetStatusTypes.Connected;
+    public void Shutdown()
+    {
+        State = NetStateTypes.Shutdown;
+        Socket.Close();
+    }
+
+    public void Connect(string ipAddress, int port)
+    {
+        Connect(IPAddress.Parse(Util.FormatAddress(ipAddress)), port);
+    }
+
+    public void Connect(IPAddress ip, int port)
+    {
+        _ep = new IPEndPoint(ip, port);
+        var peer = CreatePeer(_ep);
+        Thread.Sleep(2);
+        peer.IsConnector = true;
+        peer.State = NetConnectionTypes.Connecting;
+    }
+
+    public void OnPeerConnected(NetPeer peer)
+    {
+        OnConnectedEvent?.Invoke(peer);
+        PeerCollection.AddHandshakePeer(peer);
     }
 
     private void OnConnectedToPeer(NetPeer peer)
@@ -174,119 +245,41 @@ public class PonkerNet
         SendUnconnected(msg);
     }
 
-    private void HandlePingPongPacket(PingPongPacket pkt, NetPeer peer)
+    private NetPeer CreatePeer(EndPoint ep)
     {
-        if(NetStatus == NetStatusTypes.Host)
-        {
-            // Log.D("ping receive");
-            SendPingPong(peer, DateTime.Now);
-            Log.D("sent pong");
-        }
-        else
-        {
-            // Log.D("pong receive");
-            var now = DateTime.Now;
-            var diff = now.Subtract(peer.LastPingDate);
-            Log.D($"pingpong time {diff.TotalMilliseconds}ms");
-        }
+        var peer = new NetPeer(this, (IPEndPoint)ep);
+        PeerCollection.AddPeer(peer);
+        return peer;
     }
 
-    async Task SendPingPong(NetPeer peer, DateTime now)
+    private NetPeer AcceptPeer(NetPeer peer)
     {
-        var pingPacket = new PingPongPacket();
-        var writer = CreateMessage();
-        writer.Write(pingPacket);
-        await SendTo(writer, peer.EndPoint);
-        peer.LastPingDate = now;
-    }
-
-    public async Task ReadMessagesAsync()
-    {
-        // Log.D("reading");
-        if(NetStatus == NetStatusTypes.Connected)
-        {
-            var dateNow = DateTime.Now;
-            if(dateNow.Subtract(_lastPingCheckTime) > TimeSpan.FromMilliseconds(Config.PingPongInterval))
-            {
-                for(int i = 0; i < _acceptedPeersList.Count; i++)
-                {
-                    var pingPeer = _acceptedPeersList[i];
-                    if(dateNow.Subtract(pingPeer.LastPingDate) > TimeSpan.FromMilliseconds(Config.PingPongInterval))
-                    {
-                        await SendPingPong(pingPeer, dateNow);
-                        // Log.D("sent ping");
-                    }
-                }
-                _lastPingCheckTime = dateNow;
-            }
-        }
-
-        for(int i = 0; i < _peersToConnectTo.Count; i++)
-        {
-            var conPeer = _peersToConnectTo[i];
-            if(ConnectToPeer(conPeer))
-            {
-                OnConnectedToPeer(conPeer);
-                _peersToConnectTo.RemoveAt(i--);
-            }
-        }
-
-        SocketReceiveMessageFromResult res;
-
-        res = await socket.ReceiveMessageFromAsync(_bufferSeg, SocketFlags.None, _ep);
-
-        if(res.ReceivedBytes == 0)
-        {
-            return;
-        }
-
-        if(IsPeerAccepted(res.RemoteEndPoint, out NetPeer peer))
-        {
-            // Log.D($"[{Name}]Received '{res.ReceivedBytes}' connected bytes");
-            ReadConnectedData(res, peer);
-        }
-        else
-        {
-            // Log.D($"[{Name}]Received '{res.ReceivedBytes}' unconnected bytes");
-            await ReadUnconnectedData(res);
-        }
-    }
-
-    private NetPeer AcceptPeer(EndPoint ep)
-    {
-        var peer = new NetPeer((IPEndPoint)ep);
-        _acceptedPeers.Add(peer.EndPoint, peer);
-        _acceptedPeersList.Add(peer);
+        peer.Accept();
+        PeerCollection.AddAcceptedPeer(peer);
         return peer;
     }
 
     private bool IsPeerAccepted(EndPoint endPoint)
-        => _acceptedPeers.ContainsKey(endPoint);
+        => PeerCollection.GetAcceptedPeer(endPoint, out _);
 
     private bool IsPeerAccepted(EndPoint endPoint, out NetPeer peer)
-        => _acceptedPeers.TryGetValue(endPoint, out peer!);
+        => PeerCollection.GetAcceptedPeer(endPoint, out peer);
 
-    private void ReadConnectedData(SocketReceiveMessageFromResult res, NetPeer peer)
+    private void ReadConnectedData(int receivedBytes, NetPeer peer)
     {
-        int receivedBytes = res.ReceivedBytes;
-
         _reader.PrepareRead(_buffer, receivedBytes);
 
         while(_reader.Current < receivedBytes)
         {
             IPacket packet = _reader.ReadPacket(out Type packetType);
-            Services.TriggerPacket(packetType, packet, peer);
+            Services.Trigger(packetType, packet, peer);
         }
     }
 
-    private async Task ReadUnconnectedData(SocketReceiveMessageFromResult res)
+    private void ReadUnconnectedData(int receivedBytes, IPEndPoint ep)
     {
-        Console.WriteLine("received unconnected data");
-
-        _reader.PrepareRead(_buffer, res.ReceivedBytes);
+        _reader.PrepareRead(_buffer, receivedBytes);
         var unconnectedMessageType = (UnconnectedMessageTypes)_reader.ReadByte(); //_buffer[0];
-
-        Log.D(Name);
 
         switch(unconnectedMessageType)
         {
@@ -294,14 +287,13 @@ public class PonkerNet
             {
                 _reader.ReadString(out string secret);
 
-                var ep = (IPEndPoint)res.RemoteEndPoint;
                 if(!secret.Equals(Config.Secret))
                 {
-                    Log.D($"Handshake Request failed - secret mismatch ({ep})");
+                    Log.D($"Handshake request failed - secret mismatch ({ep})");
                     break;
                 }
 
-                Log.D($"Handshake Request success ({ep})");
+                Log.D($"Handshake request success ({ep})  |  Sending HandshakeResponse");
 
                 //  respond to handshake
                 var msg = CreateHandshakeMessage();
@@ -309,31 +301,37 @@ public class PonkerNet
                 msg.Write((byte)UnconnectedMessageTypes.HandshakeResponse);
                 msg.Write(secret);
 
-                var peer = AcceptPeer(res.RemoteEndPoint);
+                var peer = CreatePeer(ep);
+                AcceptPeer(peer);
 
                 OnConnectedEvent?.Invoke(peer);
 
-                await SendToUnconnected(msg, res.RemoteEndPoint);
+                SendToUnconnected(msg, ep);
 
                 break;
             }
 
             case UnconnectedMessageTypes.HandshakeResponse:
             {
-                _reader.Read(out string secret);
-                Console.WriteLine($"HandshakeResponse: {secret}");
+                if(!PeerCollection.GetHandshakingPeer(ep, out NetPeer peer))
+                {
+                    Log.W($"Was not awaiting handshake response from this address ({ep})");
+                    break;
+                }
 
-                var ep = (IPEndPoint)res.RemoteEndPoint;
+                _reader.Read(out string secret);
+
                 if(!secret.Equals(Config.Secret))
                 {
                     Log.D($"Handshake response failed - secret mismatch ({ep})");
                     break;
                 }
 
-                NetStatus = NetStatusTypes.Connected;
+                // NetStatus = NetConnectionTypes.Connected;
                 Log.D($"Handshake response success ({ep})");
 
-                var peer = AcceptPeer(ep);
+                AcceptPeer(peer);
+                PeerCollection.RemoveHandshake(peer.EndPoint);
                 OnConnectionAccepted?.Invoke(peer);
 
                 break;
@@ -341,43 +339,99 @@ public class PonkerNet
 
             default:
             {
-                Console.WriteLine("!! Unrecognized data received !!");
-                Console.WriteLine($"-> {(int)unconnectedMessageType}");
+                Log.D($"!! Unrecognized data received !! -> {(int)unconnectedMessageType} ");
+                OnUnconnectedMessageReceived?.Invoke(ep, _reader);
                 break;
             }
         }
     }
 
-    private async Task SendUnconnected(NetMessageWriter msg)
+    public void SendUnconnected(NetMessageWriter msg)
     {
         msg.PrepareSendUnconnected();
-        await socket.SendToAsync(msg.DataSegmentOut, SocketFlags.None, _ep);
+        Socket.SendToAsync(msg.DataSegmentOut, SocketFlags.None, _ep);
     }
 
-    private async Task SendToUnconnected(NetMessageWriter msg, EndPoint recipient)
+    public void SendToUnconnected(NetMessageWriter msg, EndPoint recipient)
     {
         msg.PrepareSendUnconnected();
-        await socket.SendToAsync(msg.DataSegmentOut, SocketFlags.None, recipient);
+        Socket.SendToAsync(msg.DataSegmentOut, SocketFlags.None, recipient);
     }
 
-    public async Task SendTo(NetMessageWriter msg, EndPoint recipient)
+    public void SendTo(NetMessageWriter msg, NetPeer peer)
     {
         msg.PrepareSend();
-        await socket.SendToAsync(msg.DataSegmentOut, SocketFlags.None, recipient);
+        peer.EnqueueOutgoingMessage(msg);
     }
 
-    public async Task SendToAll(NetMessageWriter msg)
+    public void SendToAll(NetMessageWriter msg)
     {
         msg.PrepareSend();
-        for(int i = 0; i < _acceptedPeersList.Count; i++)
+        var peers = PeerCollection.AcceptedPeers;
+        for(int i = 0; i < peers.Count; i++)
         {
-            await socket.SendToAsync(msg.DataSegmentOut, SocketFlags.None, _acceptedPeersList[i].EndPoint);
+            peers[i].EnqueueOutgoingMessage(msg);
         }
     }
 
-    public async Task Send(NetMessageWriter msg)
+    public void Send(NetMessageWriter msg)
     {
         msg.PrepareSend();
-        await socket.SendToAsync(msg.DataSegmentOut, SocketFlags.None, _ep);
+        PeerCollection.AcceptedPeers[0].EnqueueOutgoingMessage(msg);
+    }
+
+    internal void SendPing(NetPeer peer)
+    {
+        var pingPacket = new PingPongPacket();
+        var writer = CreateMessage();
+        writer.Write(pingPacket);
+        SendTo(writer, peer);
+        PeerCollection.AddPing(peer.EndPoint);
+    }
+
+    internal void SendPong(NetPeer peer)
+    {
+        var pingPacket = new PingPongPacket();
+        var writer = CreateMessage();
+        writer.Write(pingPacket);
+        SendTo(writer, peer);
+        PeerCollection.AddPong(peer.EndPoint);
+    }
+
+    /// <summary>
+    /// 3-way ping,pong,pang
+    /// </summary>
+    private void HandlePingPongPangPacket(PingPongPacket pkt, NetPeer peer)
+    {
+        //  was awaiting a pong, send pang
+        if(PeerCollection.IsPing(peer.EndPoint))
+        {
+            var now = DateTime.Now;
+            SendPong(peer); // send pang
+            var diff = now.Subtract(peer.LastPingDate);
+            diff = diff.Subtract(TimeSpan.FromMilliseconds(NetConst.AvgPingProcessTime));
+            Console.Title = $"{Name} - {diff.TotalMilliseconds}ms";
+            PeerCollection.RemovePing(peer.EndPoint);
+            Stats.Latency = (int)diff.TotalMilliseconds;
+        }
+
+        //  was awaiting pang
+        else if(PeerCollection.IsPong(peer.EndPoint))
+        {
+            var now = DateTime.Now;
+            var diff = now.Subtract(peer.LastPingDate);
+            diff = diff.Subtract(TimeSpan.FromMilliseconds(NetConst.AvgPingProcessTime));
+            Console.Title = $"{Name} - {diff.TotalMilliseconds}ms";
+            PeerCollection.RemovePong(peer.EndPoint);
+        }
+
+        //  received ping, send pong
+        else
+        {
+            SendPong(peer);
+            peer.LastPingDate = DateTime.Now;
+            //  received a ping, send pong
+            PeerCollection.AddPong(peer.EndPoint);
+        }
     }
 }
